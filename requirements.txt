@@ -1,0 +1,14 @@
+pandas
+numpy
+psycopg2-binary
+sqlalchemy
+kiteconnect
+beautifulsoup4
+requests
+lxml
+yfinance
+APScheduler
+streamlit
+plotly
+python-dotenv
+ta
