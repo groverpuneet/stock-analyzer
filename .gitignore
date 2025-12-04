@@ -1,0 +1,26 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+
+# Sensitive files
+.env
+.kite_access_token
+
+# Database
+*.db
+*.sqlite
+
+# Logs
+logs/*.log
+
+# OS files
+.DS_Store
+.vscode/
+.idea/
+
+# Data files
+*.csv
+*.xlsx
