@@ -47,6 +47,7 @@ from data_collectors.fii_dii_collector import collect_fii_dii
 from data_collectors.nse_actions_collector import collect_nse_actions
 from data_collectors.screener_collector import collect_screener_fundamentals
 from utils.db import get_refresh_status, needs_refresh
+from data_collectors.news_sentiment_collector import collect_news_sentiment
 from utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -116,6 +117,15 @@ def task_screener():
         log.info("=== TASK DONE: Screener.in fundamentals ===")
     except Exception as e:
         log.error(f"=== TASK FAILED: Screener — {e} ===", exc_info=True)
+
+
+def task_news_sentiment():
+    log.info("=== TASK START: News sentiment ===")
+    try:
+        collect_news_sentiment()
+        log.info("=== TASK DONE: News sentiment ===")
+    except Exception as e:
+        log.error(f"=== TASK FAILED: News sentiment — {e} ===", exc_info=True)
 
 
 def task_rbi_macro():
@@ -215,6 +225,7 @@ def start_scheduler():
         (task_fii_dii,        CronTrigger(day_of_week='mon-fri', hour=16, minute=30, timezone=IST), 'daily_fii_dii'),
         (task_nse_actions,    CronTrigger(day_of_week='mon-fri', hour=16, minute=45, timezone=IST), 'event_nse_actions'),
         (task_signals,        CronTrigger(day_of_week='mon-fri', hour=17, minute=0,  timezone=IST), 'daily_signals'),
+        (task_news_sentiment, CronTrigger(day_of_week='mon-fri', hour=17, minute=15, timezone=IST), 'daily_news_sentiment'),
 
         # ── Pre-market Daily ──────────────────────────────────────────────────
         (task_whatsapp,       CronTrigger(day_of_week='mon-fri', hour=7,   minute=0,  timezone=IST), 'daily_whatsapp'),
