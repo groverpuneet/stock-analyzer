@@ -42,7 +42,7 @@ def get_nse_session() -> requests.Session:
     return session
 
 
-def _parse_cr(value) -> float | None:
+def _parse_cr(value) -> float:
     """Parse crore values like '12,345.67' or '-2345.00' to float."""
     if value is None:
         return None
@@ -52,7 +52,7 @@ def _parse_cr(value) -> float | None:
         return None
 
 
-def fetch_from_nse(session: requests.Session) -> list[dict]:
+def fetch_from_nse(session: requests.Session) -> list:
     """
     Fetch FII/DII data from NSE API.
     Returns list of dicts with keys: date, fii_buy, fii_sell, fii_net,
@@ -94,7 +94,7 @@ def fetch_from_nse(session: requests.Session) -> list[dict]:
     return results
 
 
-def fetch_from_moneycontrol() -> list[dict]:
+def fetch_from_moneycontrol() -> list:
     """Fallback scraper for FII/DII from Moneycontrol."""
     resp = requests.get(MC_FII_URL, headers={'User-Agent': HEADERS['User-Agent']}, timeout=15)
     resp.raise_for_status()
@@ -132,7 +132,7 @@ def fetch_from_moneycontrol() -> list[dict]:
     return results
 
 
-def _parse_nse_date(raw) -> date | None:
+def _parse_nse_date(raw) -> date:
     if not raw:
         return None
     for fmt in ('%d-%b-%Y', '%d-%m-%Y', '%Y-%m-%d', '%b %d, %Y', '%d/%m/%Y'):
@@ -231,7 +231,7 @@ def _print_recent(days=5):
     for dt, fii, dii in rows:
         fii  = fii  or 0
         dii  = dii  or 0
-        icon = '🟢'`if (fii + dii) > 0 else '🔴'
+        icon = '🟢' if (fii + dii) > 0 else '🔴'
         print(f"  {str(dt):<14} {fii:>12,.0f} {dii:>12,.0f} {icon} {fii+dii:>9,.0f}")
 
 

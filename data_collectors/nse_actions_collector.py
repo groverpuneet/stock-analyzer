@@ -209,7 +209,7 @@ def store_earnings_calendar(events: list, stock_map: dict) -> int:
     return count
 
 
-def _parse_date(raw) -> date | None:
+def _parse_date(raw) -> date:
     if not raw:
         return None
     if isinstance(raw, date):
