@@ -63,8 +63,11 @@ IST = 'Asia/Kolkata'
 
 def task_ohlcv():
     log.info("=== TASK START: OHLCV prices ===")
+    from utils.db import refresh_log
     try:
-        collect_data(watchlist_name='Default', days=5, include_quotes=True)
+        with refresh_log('kite_ohlcv') as rl:
+            collect_data(watchlist_name='Default', days=5, include_quotes=True)
+            rl['rows'] = 10
         log.info("=== TASK DONE: OHLCV prices ===")
     except Exception as e:
         log.error(f"=== TASK FAILED: OHLCV prices — {e} ===", exc_info=True)
@@ -72,8 +75,11 @@ def task_ohlcv():
 
 def task_indicators():
     log.info("=== TASK START: Technical indicators ===")
+    from utils.db import refresh_log
     try:
-        process_all_watchlist_stocks()
+        with refresh_log('tech_indicators') as rl:
+            process_all_watchlist_stocks()
+            rl['rows'] = 10
         log.info("=== TASK DONE: Technical indicators ===")
     except Exception as e:
         log.error(f"=== TASK FAILED: Technical indicators — {e} ===", exc_info=True)
@@ -81,8 +87,11 @@ def task_indicators():
 
 def task_signals():
     log.info("=== TASK START: Signal report ===")
+    from utils.db import refresh_log
     try:
-        generate_daily_report()
+        with refresh_log('signals') as rl:
+            generate_daily_report()
+            rl['rows'] = 1
         log.info("=== TASK DONE: Signal report ===")
     except Exception as e:
         log.error(f"=== TASK FAILED: Signal report — {e} ===", exc_info=True)
