@@ -27,7 +27,7 @@ LABEL_MAP = {
 def scrape_dbie_homepage():
     log.info("Source 1: RBI DBIE homepage...")
     try:
-        resp = requests.get(DBIE_URL, headers=HEADERS, timeout=15)
+        resp = requests.get(DBIE_URL, headers=HEADERS, timeout=30)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "lxml")
         ticker = ""
@@ -86,41 +86,11 @@ def fetch_rbi_policy_releases():
     return releases
 
 def fetch_mospi_data():
-    log.info("Source 3: MoSPI via data.gov.in...")
-    results = {}
-    for name, cfg in MOSPI_DATASETS.items():
-        try:
-            resp = requests.get(
-                f"https://api.data.gov.in/resource/{cfg['resource_id']}",
-                params={"api-key": DATA_GOV_KEY, "format": "json", "limit": 5}, timeout=15)
-            resp.raise_for_status()
-            records = resp.json().get("records", [])
-            if not records:
-                log.warning(f"  {name.upper()}: no records")
-                continue
-            latest = records[-1]
-            period = latest.get("month_year") or latest.get("period") or latest.get("year") or ""
-            value = None
-            for field in cfg["fields"]:
-                for key in latest:
-                    if field.lower() in key.lower():
-                        try:
-                            value = float(str(latest[key]).replace(",", ""))
-                            break
-                        except (ValueError, TypeError):
-                            pass
-                if value is not None:
-                    break
-            if value is not None:
-                results[cfg["indicator"]] = (value, cfg["unit"], str(period))
-                log.info(f"  {name.upper()}: {cfg['indicator']} = {value} ({period})")
-            else:
-                log.warning(f"  {name.upper()}: could not extract value. Fields: {list(latest.keys())[:6]}")
-        except requests.HTTPError as e:
-            log.warning(f"  {name.upper()}: HTTP {e.response.status_code}")
-        except Exception as e:
-            log.warning(f"  {name.upper()}: {e}")
-    return results
+    """MoSPI data sources are JS-rendered or require auth.
+    TODO: integrate esankhyiki.mospi.gov.in MCP server (needs fastmcp).
+    For now returns empty dict — values manually seeded."""
+    log.info("Source 3: MoSPI — skipped (JS-rendered, no API key)")
+    return {}
 
 def store_macro_indicators(indicators):
     if not indicators:

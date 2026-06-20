@@ -431,3 +431,9 @@ When using LLM APIs (Claude, etc.) in this project, optimize for minimum token u
 5. **Context window discipline**: Never pass full article text when headline suffices
 6. **Tiered scoring**: Use cheap/free local model (FinBERT) for all stocks, expensive API only for signals above threshold (e.g. score > 0.5)
 7. **File transfers**: Split base64 transfers at ~9KB chunks to avoid corruption
+
+## TODO: RBI Macro — Come Back Later
+- RBI DBIE SSL issue: Mac's LibreSSL 2.8.3 too old for RBI's server. Fix: upgrade Python SSL or use a VM/server with OpenSSL 1.1.1+
+- MoSPI CPI/IIP: data.gov.in API key broken (empty dropdown bug on portal). Website is JS-rendered, not scrapable.
+- Best path forward: integrate mcp.mospi.gov.in MCP server (official MoSPI MCP, 25 datasets, needs fastmcp pip package)
+- Current state: 8 macro indicators manually seeded for Jun-26 in macro_indicators table
