@@ -437,3 +437,12 @@ When using LLM APIs (Claude, etc.) in this project, optimize for minimum token u
 - MoSPI CPI/IIP: data.gov.in API key broken (empty dropdown bug on portal). Website is JS-rendered, not scrapable.
 - Best path forward: integrate mcp.mospi.gov.in MCP server (official MoSPI MCP, 25 datasets, needs fastmcp pip package)
 - Current state: 8 macro indicators manually seeded for Jun-26 in macro_indicators table
+
+## TODO: MF Portfolio Holdings
+- AMFI portfolio holdings page is JS-rendered (Next.js) — not scrapable with requests
+- Each AMC publishes monthly holdings on their own website by 10th of month
+- Options to explore:
+  1. mfapi.in — has clean JSON NAV data, check if holdings available
+  2. Playwright/Selenium for JS rendering (set up when building UI)
+  3. Some AMCs provide direct CSV downloads — could scrape those individually
+- For now track via bulk deals (MF bulk purchases show up there)
