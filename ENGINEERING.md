@@ -419,3 +419,15 @@ If daily_tasks.py throws ModuleNotFoundError for whatsapp_collector, remove that
 When pasting large files fails, use base64 encoding via Python:
   In sandbox: python3 -c "import base64; print(base64.b64encode(open('file.py','rb').read()).decode())"
   On Mac: python3 -c "import base64; open('file.py','wb').write(base64.b64decode('BASE64STRING'))"
+
+## Token Optimization Standard
+
+When using LLM APIs (Claude, etc.) in this project, optimize for minimum token usage:
+
+1. **System prompts**: Keep concise — no verbose instructions or examples
+2. **Batch over serial**: Score all headlines in one API call, not one per headline
+3. **Local models first**: Use FinBERT/local models for bulk scoring; reserve API calls for high-value decisions only
+4. **Structured outputs**: Request JSON responses with specific field names to minimize parsing overhead
+5. **Context window discipline**: Never pass full article text when headline suffices
+6. **Tiered scoring**: Use cheap/free local model (FinBERT) for all stocks, expensive API only for signals above threshold (e.g. score > 0.5)
+7. **File transfers**: Split base64 transfers at ~9KB chunks to avoid corruption
