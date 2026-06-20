@@ -47,7 +47,7 @@ from data_collectors.fii_dii_collector import collect_fii_dii
 from data_collectors.nse_actions_collector import collect_nse_actions
 from data_collectors.screener_collector import collect_screener_fundamentals
 from utils.db import get_refresh_status, needs_refresh
-from data_collectors.news_sentiment_collector import collect_news_sentiment
+from data_collectors.news_collector import collect_news
 from utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -122,7 +122,7 @@ def task_screener():
 def task_news_sentiment():
     log.info("=== TASK START: News sentiment ===")
     try:
-        collect_news_sentiment()
+        collect_news()
         log.info("=== TASK DONE: News sentiment ===")
     except Exception as e:
         log.error(f"=== TASK FAILED: News sentiment — {e} ===", exc_info=True)
