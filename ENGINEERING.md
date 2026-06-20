@@ -404,3 +404,18 @@ python3 << 'PYEOF'
 open('filename.py', 'w').write('''file content here''')
 PYEOF
 ```
+
+### Python 3.9 vs 3.10+ type hint syntax
+float | None syntax only works on Python 3.10+. On Python 3.9, remove the type hints.
+Fix: python3 -c "content = open('file.py').read(); content = content.replace('-> float | None:', '-> float:'); open('file.py', 'w').write(content)"
+
+### Kite access token expires daily
+Run python3 data_collectors/kite_test.py, open the login URL, paste the request_token from the redirect URL. Token saved to .kite_access_token.
+
+### Scheduler imports WhatsApp collector which may not exist
+If daily_tasks.py throws ModuleNotFoundError for whatsapp_collector, remove that import line until the collector is deployed.
+
+### base64 file transfer method
+When pasting large files fails, use base64 encoding via Python:
+  In sandbox: python3 -c "import base64; print(base64.b64encode(open('file.py','rb').read()).decode())"
+  On Mac: python3 -c "import base64; open('file.py','wb').write(base64.b64decode('BASE64STRING'))"

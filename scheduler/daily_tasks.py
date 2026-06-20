@@ -47,7 +47,6 @@ from data_collectors.fii_dii_collector import collect_fii_dii
 from data_collectors.nse_actions_collector import collect_nse_actions
 from data_collectors.screener_collector import collect_screener_fundamentals
 from utils.db import get_refresh_status, needs_refresh
-from data_collectors.whatsapp_collector import process_exports, print_todays_signals
 from utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -150,8 +149,7 @@ def task_whatsapp():
     """
     log.info("=== TASK START: WhatsApp signals ===")
     try:
-        process_exports()
-        print_todays_signals()
+        pass  # WhatsApp collector not yet deployed
         log.info("=== TASK DONE: WhatsApp signals ===")
     except Exception as e:
         log.error(f"=== TASK FAILED: WhatsApp — {e} ===", exc_info=True)
