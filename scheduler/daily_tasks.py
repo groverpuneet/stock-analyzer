@@ -10,7 +10,8 @@ Tiers and schedule (all IST):
 
   Weekly    Sunday   08:00   Screener.in fundamentals
   Weekly    Sunday   08:30   RBI macro indicators  ← moved from monthly
-  Weekly    Sunday   09:00   Sector indices + Google Trends
+  Weekly    Sunday   09:00   Insider trades + Bulk deals
+  Weekly    Sunday   09:30   Sector indices + Google Trends
 
   Quarterly  (manual trigger after results season)
 
@@ -30,6 +31,7 @@ Commands:
   python scheduler/daily_tasks.py --fii        # run FII/DII only
   python scheduler/daily_tasks.py --actions    # run NSE actions only
   python scheduler/daily_tasks.py --macro      # run RBI macro only
+  python scheduler/daily_tasks.py --insider    # run insider trades + bulk deals only
 """
 import sys
 import os
@@ -47,6 +49,7 @@ from data_collectors.fii_dii_collector import collect_fii_dii
 from data_collectors.nse_actions_collector import collect_nse_actions
 from data_collectors.screener_collector import collect_screener_fundamentals
 from utils.db import get_refresh_status, needs_refresh
+from data_collectors.insider_bulk_collector import collect_insider_and_bulk
 from data_collectors.news_collector import collect_news
 from utils.logger import get_logger
 
@@ -150,6 +153,19 @@ def task_rbi_macro():
     log.info("=== TASK DONE: RBI macro indicators (stub) ===")
 
 
+def task_insider_bulk():
+    """Weekly — insider trades + bulk deals, last 7 days."""
+    log.info("=== TASK START: Insider trades + Bulk deals ===")
+    if not needs_refresh('insider_trades', min_hours=6 * 24):
+        log.info("Insider/bulk: skipping — ran within last 6 days")
+        return
+    try:
+        collect_insider_and_bulk(days=7)
+        log.info("=== TASK DONE: Insider trades + Bulk deals ===")
+    except Exception as e:
+        log.error(f"=== TASK FAILED: Insider/bulk — {e} ===", exc_info=True)
+
+
 def task_sector_indices():
     """Weekly — Nifty sector index weights and Google Trends. Stub for now."""
     log.info("=== TASK START: Sector indices + Google Trends ===")
@@ -193,6 +209,7 @@ def run_weekly_pipeline():
     log.info("Starting weekly pipeline")
     task_screener()
     task_rbi_macro()
+    task_insider_bulk()
     task_sector_indices()
     log.info("Weekly pipeline complete")
 
@@ -242,7 +259,8 @@ def start_scheduler():
         # ── Weekly Sunday ──────────────────────────────────────────────────────
         (task_screener,       CronTrigger(day_of_week='sun', hour=8,  minute=0,  timezone=IST), 'weekly_screener'),
         (task_rbi_macro,      CronTrigger(day_of_week='sun', hour=8,  minute=30, timezone=IST), 'weekly_rbi_macro'),
-        (task_sector_indices, CronTrigger(day_of_week='sun', hour=9,  minute=0,  timezone=IST), 'weekly_sectors'),
+        (task_insider_bulk,   CronTrigger(day_of_week='sun', hour=9,  minute=0,  timezone=IST), 'weekly_insider_bulk'),
+        (task_sector_indices, CronTrigger(day_of_week='sun', hour=9,  minute=30, timezone=IST), 'weekly_sectors'),
     ]
 
     for fn, trigger, job_id in jobs:
@@ -259,7 +277,8 @@ def start_scheduler():
     print("  Daily   Mon-Fri  17:00  Signal report")
     print("  Weekly  Sunday   08:00  Screener.in fundamentals")
     print("  Weekly  Sunday   08:30  RBI macro indicators")
-    print("  Weekly  Sunday   09:00  Sector indices")
+    print("  Weekly  Sunday   09:00  Insider trades + Bulk deals")
+    print("  Weekly  Sunday   09:30  Sector indices")
     print(f"{'='*60}\n")
 
     try:
@@ -289,6 +308,8 @@ if __name__ == "__main__":
         task_nse_actions()
     elif '--macro' in args:
         task_rbi_macro()
+    elif '--insider' in args:
+        task_insider_bulk()
     elif '--whatsapp' in args:
         task_whatsapp()
     elif '--daily' in args:
