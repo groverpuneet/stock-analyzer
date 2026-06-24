@@ -262,7 +262,8 @@ The scheduler runs via `python scheduler/daily_tasks.py`. All times are IST.
 | 17:00 | Mon–Fri | Signal report | All of the above |
 | 08:00 | Sunday | Fundamentals | Screener.in |
 | 08:30 | Sunday | RBI macro indicators | RBI DBIE API |
-| 09:00 | Sunday | Sector indices | NSE |
+| 09:00 | Sunday | Insider trades + Bulk deals | NSE API |
+| 09:30 | Sunday | Sector indices | NSE |
 
 ### Scheduler Commands
 
@@ -280,6 +281,7 @@ python scheduler/daily_tasks.py --status
 python scheduler/daily_tasks.py --screener
 python scheduler/daily_tasks.py --fii
 python scheduler/daily_tasks.py --actions
+python scheduler/daily_tasks.py --insider
 python scheduler/daily_tasks.py --whatsapp
 ```
 
@@ -296,7 +298,7 @@ Priority order — build top to bottom.
 | 3 | FII/DII flows | Daily | ✅ Built |
 | 4 | News sentiment (Claude API) | Daily | ⬜ Next |
 | 5 | RBI macro data (DBIE) | Weekly | ⬜ Stub only |
-| 6 | Insider / bulk deals | Weekly | ⬜ Not started |
+| 6 | Insider / bulk deals | Weekly | ✅ Built |
 | 7 | WhatsApp expert chats | Daily | ⬜ Built, needs auto-export |
 | — | US market (NYSE/NASDAQ) | — | ⬜ Future |
 | — | Other markets (LSE etc.) | — | ⬜ Future |
