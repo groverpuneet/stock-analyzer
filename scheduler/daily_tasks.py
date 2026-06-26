@@ -333,6 +333,8 @@ if __name__ == "__main__":
         task_insider_bulk()
     elif '--model' in args:
         task_model_refresh()
+    elif '--news' in args:
+        task_news_sentiment()
     elif '--whatsapp' in args:
         task_whatsapp()
     elif '--daily' in args:
