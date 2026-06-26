@@ -34,7 +34,7 @@ Commands:
   python scheduler/daily_tasks.py --actions    # run NSE actions only
   python scheduler/daily_tasks.py --macro      # run RBI macro only
   python scheduler/daily_tasks.py --insider    # run insider trades + bulk deals only
-  python scheduler/daily_tasks.py --model     # run monthly model refresh only
+  python scheduler/daily_tasks.py --model-refresh  # run monthly model refresh only
 """
 import sys
 import os
@@ -273,8 +273,8 @@ def start_scheduler():
         # ── Pre-market Daily ──────────────────────────────────────────────────
         (task_whatsapp,       CronTrigger(day_of_week='mon-fri', hour=7,   minute=0,  timezone=IST), 'daily_whatsapp'),
 
-        # ── Monthly first Sunday ───────────────────────────────────────────────
-        (task_model_refresh,  CronTrigger(day_of_week='sun', day='1-7', hour=6, minute=0, timezone=IST), 'monthly_model_refresh'),
+        # ── Monthly 1st of month ──────────────────────────────────────────────
+        (task_model_refresh,  CronTrigger(day='1', hour=2, minute=0, timezone=IST), 'monthly_model_refresh'),
 
         # ── Weekly Sunday ──────────────────────────────────────────────────────
         (task_screener,       CronTrigger(day_of_week='sun', hour=8,  minute=0,  timezone=IST), 'weekly_screener'),
@@ -295,7 +295,7 @@ def start_scheduler():
     print("  Daily   Mon-Fri  16:30  FII/DII flows")
     print("  Daily   Mon-Fri  16:45  NSE corporate actions")
     print("  Daily   Mon-Fri  17:00  Signal report")
-    print("  Monthly 1st Sun  06:00  Model refresh (scores + FinBERT + baselines)")
+    print("  Monthly 1st      02:00  Model refresh (scores + FinBERT + baselines)")
     print("  Weekly  Sunday   08:00  Screener.in fundamentals")
     print("  Weekly  Sunday   08:30  RBI macro indicators")
     print("  Weekly  Sunday   09:00  Insider trades + Bulk deals")
@@ -331,7 +331,7 @@ if __name__ == "__main__":
         task_rbi_macro()
     elif '--insider' in args:
         task_insider_bulk()
-    elif '--model' in args:
+    elif '--model-refresh' in args:
         task_model_refresh()
     elif '--news' in args:
         task_news_sentiment()
