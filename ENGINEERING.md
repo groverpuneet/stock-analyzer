@@ -177,7 +177,8 @@ Located in `alembic/versions/`. Named `YYYYMMDD_XXXX_description.py`.
 |-----------|-------------|
 | `0001_baseline_existing_schema` | Original tables: stocks, daily_prices, quotes, fundamentals, technical_indicators, watchlist |
 | `0002_add_integrations_and_multi_market` | New tables for all integrations + multi-market `market` column |
-| `0003_add_whatsapp_messages_table` | WhatsApp raw message store |
+| `0005_allow_null_stock_id_in_news_sentiment` | Makes news_sentiment.stock_id nullable for unmatched headlines |
+| `0006_add_stock_scores_and_baselines` | stock_scores + indicator_baselines tables for monthly model refresh |
 
 ### Useful DB Queries
 
@@ -264,6 +265,7 @@ The scheduler runs via `python scheduler/daily_tasks.py`. All times are IST.
 | 08:30 | Sunday | RBI macro indicators | RBI DBIE API |
 | 09:00 | Sunday | Insider trades + Bulk deals | NSE API |
 | 09:30 | Sunday | Sector indices | NSE |
+| 06:00 | 1st Sunday of month | Model refresh (scores + FinBERT + baselines) | Local DB |
 
 ### Scheduler Commands
 
@@ -282,6 +284,7 @@ python scheduler/daily_tasks.py --screener
 python scheduler/daily_tasks.py --fii
 python scheduler/daily_tasks.py --actions
 python scheduler/daily_tasks.py --insider
+python scheduler/daily_tasks.py --model
 python scheduler/daily_tasks.py --whatsapp
 ```
 
