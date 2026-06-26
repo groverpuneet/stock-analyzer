@@ -8,6 +8,7 @@ Tiers and schedule (all IST):
   Daily     Mon-Fri  16:45   NSE corporate actions + earnings calendar
   Daily     Mon-Fri  17:00   Signal report
 
+  Weekly    Sunday   07:30   Expand stock universe (NSE EQ instruments)
   Weekly    Sunday   08:00   Screener.in fundamentals
   Weekly    Sunday   08:30   RBI macro indicators  ← moved from monthly
   Weekly    Sunday   09:00   Insider trades + Bulk deals
@@ -29,6 +30,7 @@ Commands:
   python scheduler/daily_tasks.py              # live scheduler
   python scheduler/daily_tasks.py --test       # run all tasks right now
   python scheduler/daily_tasks.py --status     # show refresh log
+  python scheduler/daily_tasks.py --expand-universe  # sync full NSE EQ instrument list
   python scheduler/daily_tasks.py --screener   # run screener only
   python scheduler/daily_tasks.py --fii        # run FII/DII only
   python scheduler/daily_tasks.py --actions    # run NSE actions only
@@ -54,6 +56,7 @@ from data_collectors.screener_collector import collect_screener_fundamentals
 from utils.db import get_refresh_status, needs_refresh
 from data_collectors.insider_bulk_collector import collect_insider_and_bulk
 from data_collectors.news_collector import collect_news
+from data_collectors.expand_stock_universe import run_expand_universe
 from jobs.model_refresh import run_model_refresh
 from utils.logger import get_logger
 
@@ -193,6 +196,19 @@ def task_sector_indices():
     log.info("=== TASK DONE: Sector indices (stub) ===")
 
 
+def task_expand_universe():
+    """Weekly — sync full NSE EQ instrument list into stocks table."""
+    log.info("=== TASK START: Expand stock universe ===")
+    if not needs_refresh('stock_universe', min_hours=6 * 24):
+        log.info("Stock universe: skipping — ran within last 6 days")
+        return
+    try:
+        run_expand_universe()
+        log.info("=== TASK DONE: Expand stock universe ===")
+    except Exception as e:
+        log.error(f"=== TASK FAILED: Expand stock universe — {e} ===", exc_info=True)
+
+
 def task_whatsapp():
     """
     Daily 07:00 AM IST — before market open.
@@ -224,6 +240,7 @@ def run_daily_pipeline():
 def run_weekly_pipeline():
     """Full weekly pipeline."""
     log.info("Starting weekly pipeline")
+    task_expand_universe()
     task_screener()
     task_rbi_macro()
     task_insider_bulk()
@@ -277,7 +294,8 @@ def start_scheduler():
         (task_model_refresh,  CronTrigger(day='1', hour=2, minute=0, timezone=IST), 'monthly_model_refresh'),
 
         # ── Weekly Sunday ──────────────────────────────────────────────────────
-        (task_screener,       CronTrigger(day_of_week='sun', hour=8,  minute=0,  timezone=IST), 'weekly_screener'),
+        (task_expand_universe, CronTrigger(day_of_week='sun', hour=7,  minute=30, timezone=IST), 'weekly_expand_universe'),
+        (task_screener,        CronTrigger(day_of_week='sun', hour=8,  minute=0,  timezone=IST), 'weekly_screener'),
         (task_rbi_macro,      CronTrigger(day_of_week='sun', hour=8,  minute=30, timezone=IST), 'weekly_rbi_macro'),
         (task_insider_bulk,   CronTrigger(day_of_week='sun', hour=9,  minute=0,  timezone=IST), 'weekly_insider_bulk'),
         (task_sector_indices, CronTrigger(day_of_week='sun', hour=9,  minute=30, timezone=IST), 'weekly_sectors'),
@@ -296,6 +314,7 @@ def start_scheduler():
     print("  Daily   Mon-Fri  16:45  NSE corporate actions")
     print("  Daily   Mon-Fri  17:00  Signal report")
     print("  Monthly 1st      02:00  Model refresh (scores + FinBERT + baselines)")
+    print("  Weekly  Sunday   07:30  Expand stock universe (NSE EQ)")
     print("  Weekly  Sunday   08:00  Screener.in fundamentals")
     print("  Weekly  Sunday   08:30  RBI macro indicators")
     print("  Weekly  Sunday   09:00  Insider trades + Bulk deals")
@@ -329,6 +348,8 @@ if __name__ == "__main__":
         task_nse_actions()
     elif '--macro' in args:
         task_rbi_macro()
+    elif '--expand-universe' in args:
+        task_expand_universe()
     elif '--insider' in args:
         task_insider_bulk()
     elif '--model-refresh' in args:
