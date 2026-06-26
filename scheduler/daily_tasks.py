@@ -2,6 +2,7 @@
 scheduler/daily_tasks.py — unified multi-tier scheduler
 
 Tiers and schedule (all IST):
+  Daily     Every    08:00   Kite token refresh (automated login)
   Daily     Mon-Fri  16:00   OHLCV prices (Kite)
   Daily     Mon-Fri  16:15   Technical indicators
   Daily     Mon-Fri  16:30   FII/DII flows
@@ -30,8 +31,9 @@ Commands:
   python scheduler/daily_tasks.py              # live scheduler
   python scheduler/daily_tasks.py --test       # run all tasks right now
   python scheduler/daily_tasks.py --status     # show refresh log
+  python scheduler/daily_tasks.py --kite-token       # refresh Kite access token now
   python scheduler/daily_tasks.py --expand-universe  # sync full NSE EQ instrument list
-  python scheduler/daily_tasks.py --screener   # run screener only
+  python scheduler/daily_tasks.py --screener         # run screener only
   python scheduler/daily_tasks.py --fii        # run FII/DII only
   python scheduler/daily_tasks.py --actions    # run NSE actions only
   python scheduler/daily_tasks.py --macro      # run RBI macro only
@@ -57,6 +59,7 @@ from utils.db import get_refresh_status, needs_refresh
 from data_collectors.insider_bulk_collector import collect_insider_and_bulk
 from data_collectors.news_collector import collect_news
 from data_collectors.expand_stock_universe import run_expand_universe
+from kite_auth.auto_login import refresh_token as kite_refresh_token
 from jobs.model_refresh import run_model_refresh
 from utils.logger import get_logger
 
@@ -209,6 +212,16 @@ def task_expand_universe():
         log.error(f"=== TASK FAILED: Expand stock universe — {e} ===", exc_info=True)
 
 
+def task_kite_token():
+    """Daily — refresh Kite access token at 8am IST before market tasks run."""
+    log.info("=== TASK START: Kite token refresh ===")
+    try:
+        kite_refresh_token()
+        log.info("=== TASK DONE: Kite token refresh ===")
+    except Exception as e:
+        log.error(f"=== TASK FAILED: Kite token refresh — {e} ===", exc_info=True)
+
+
 def task_whatsapp():
     """
     Daily 07:00 AM IST — before market open.
@@ -288,6 +301,7 @@ def start_scheduler():
         (task_news_sentiment, CronTrigger(day_of_week='mon-fri', hour=17, minute=15, timezone=IST), 'daily_news_sentiment'),
 
         # ── Pre-market Daily ──────────────────────────────────────────────────
+        (task_kite_token,     CronTrigger(hour=8, minute=0, timezone=IST), 'daily_kite_token'),
         (task_whatsapp,       CronTrigger(day_of_week='mon-fri', hour=7,   minute=0,  timezone=IST), 'daily_whatsapp'),
 
         # ── Monthly 1st of month ──────────────────────────────────────────────
@@ -308,6 +322,7 @@ def start_scheduler():
     print(f"\n{'='*60}")
     print("SCHEDULER RUNNING  (Ctrl+C to stop)")
     print(f"{'='*60}")
+    print("  Daily   Every    08:00  Kite token refresh (auto-login)")
     print("  Daily   Mon-Fri  16:00  OHLCV prices")
     print("  Daily   Mon-Fri  16:15  Technical indicators")
     print("  Daily   Mon-Fri  16:30  FII/DII flows")
@@ -348,6 +363,8 @@ if __name__ == "__main__":
         task_nse_actions()
     elif '--macro' in args:
         task_rbi_macro()
+    elif '--kite-token' in args:
+        task_kite_token()
     elif '--expand-universe' in args:
         task_expand_universe()
     elif '--insider' in args:
