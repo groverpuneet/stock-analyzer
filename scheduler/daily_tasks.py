@@ -13,6 +13,8 @@ Tiers and schedule (all IST):
   Weekly    Sunday   09:00   Insider trades + Bulk deals
   Weekly    Sunday   09:30   Sector indices + Google Trends
 
+  Monthly   1st Sun  06:00   Model refresh (scores + FinBERT + baselines)
+
   Quarterly  (manual trigger after results season)
 
 Engineering note on why we have a central scheduler:
@@ -32,6 +34,7 @@ Commands:
   python scheduler/daily_tasks.py --actions    # run NSE actions only
   python scheduler/daily_tasks.py --macro      # run RBI macro only
   python scheduler/daily_tasks.py --insider    # run insider trades + bulk deals only
+  python scheduler/daily_tasks.py --model     # run monthly model refresh only
 """
 import sys
 import os
@@ -51,6 +54,7 @@ from data_collectors.screener_collector import collect_screener_fundamentals
 from utils.db import get_refresh_status, needs_refresh
 from data_collectors.insider_bulk_collector import collect_insider_and_bulk
 from data_collectors.news_collector import collect_news
+from jobs.model_refresh import run_model_refresh
 from utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -166,6 +170,19 @@ def task_insider_bulk():
         log.error(f"=== TASK FAILED: Insider/bulk — {e} ===", exc_info=True)
 
 
+def task_model_refresh():
+    """Monthly (first Sunday) — signal scores, FinBERT cache, indicator baselines."""
+    log.info("=== TASK START: Monthly model refresh ===")
+    if not needs_refresh('model_refresh', min_hours=20 * 24):
+        log.info("Model refresh: skipping — ran within last 20 days")
+        return
+    try:
+        run_model_refresh()
+        log.info("=== TASK DONE: Monthly model refresh ===")
+    except Exception as e:
+        log.error(f"=== TASK FAILED: Model refresh — {e} ===", exc_info=True)
+
+
 def task_sector_indices():
     """Weekly — Nifty sector index weights and Google Trends. Stub for now."""
     log.info("=== TASK START: Sector indices + Google Trends ===")
@@ -256,6 +273,9 @@ def start_scheduler():
         # ── Pre-market Daily ──────────────────────────────────────────────────
         (task_whatsapp,       CronTrigger(day_of_week='mon-fri', hour=7,   minute=0,  timezone=IST), 'daily_whatsapp'),
 
+        # ── Monthly first Sunday ───────────────────────────────────────────────
+        (task_model_refresh,  CronTrigger(day_of_week='sun', day='1-7', hour=6, minute=0, timezone=IST), 'monthly_model_refresh'),
+
         # ── Weekly Sunday ──────────────────────────────────────────────────────
         (task_screener,       CronTrigger(day_of_week='sun', hour=8,  minute=0,  timezone=IST), 'weekly_screener'),
         (task_rbi_macro,      CronTrigger(day_of_week='sun', hour=8,  minute=30, timezone=IST), 'weekly_rbi_macro'),
@@ -275,6 +295,7 @@ def start_scheduler():
     print("  Daily   Mon-Fri  16:30  FII/DII flows")
     print("  Daily   Mon-Fri  16:45  NSE corporate actions")
     print("  Daily   Mon-Fri  17:00  Signal report")
+    print("  Monthly 1st Sun  06:00  Model refresh (scores + FinBERT + baselines)")
     print("  Weekly  Sunday   08:00  Screener.in fundamentals")
     print("  Weekly  Sunday   08:30  RBI macro indicators")
     print("  Weekly  Sunday   09:00  Insider trades + Bulk deals")
@@ -310,6 +331,8 @@ if __name__ == "__main__":
         task_rbi_macro()
     elif '--insider' in args:
         task_insider_bulk()
+    elif '--model' in args:
+        task_model_refresh()
     elif '--whatsapp' in args:
         task_whatsapp()
     elif '--daily' in args:
