@@ -133,6 +133,33 @@ def fetch_screener_data(symbol: str) -> dict:
             val = _parse_number(cells[1].get_text(strip=True)) if len(cells) > 1 else None
             result['operating_profit_ttm'] = val
 
+    # ── P/B — Screener has no top-ratio P/B; compute from Current Price / Book Value ──
+    current_price = None
+    for li in soup.select('#top-ratios li'):
+        n, v = li.select_one('.name'), li.select_one('.number')
+        if n and v and 'Current Price' in n.get_text():
+            current_price = _parse_number(v.get_text(strip=True))
+    if current_price and result.get('book_value'):
+        result['pb_ratio'] = round(current_price / result['book_value'], 2)
+
+    # ── Debt/Equity — from balance sheet: Borrowings / (Equity Capital + Reserves) ──
+    bs = soup.select_one('#balance-sheet')
+    if bs:
+        vals = {}
+        for tr in bs.select('table tr'):
+            cells = tr.find_all(['td', 'th'])
+            if not cells:
+                continue
+            label = cells[0].get_text(strip=True).rstrip('+').strip()
+            nums = [_parse_number(c.get_text(strip=True)) for c in cells[1:]]
+            nums = [x for x in nums if x is not None]
+            if nums:
+                vals[label] = nums[-1]   # latest period
+        borrow = vals.get('Borrowings')
+        equity = (vals.get('Equity Capital') or 0) + (vals.get('Reserves') or 0)
+        if borrow is not None and equity:
+            result['debt_to_equity'] = round(borrow / equity, 3)
+
     return result
 
 

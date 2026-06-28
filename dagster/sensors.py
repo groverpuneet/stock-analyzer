@@ -24,7 +24,20 @@ from dagster import sensor, RunRequest, SkipReason, DefaultSensorStatus  # noqa:
 
 from jobs import (  # noqa: E402
     nse_daily_job, nse_weekly_job, nse_news_job, nse_indicator_recompute_job, nse_gap_fill_job,
+    nse_fno_job, bse_bulk_job, us_daily_job, us_weekly_job,
 )
+
+# data_refresh_log source -> the job that refreshes it (for the watchdog)
+SOURCE_JOB = {
+    "kite_ohlcv": "nse_daily_job", "kite_quotes": "nse_daily_job", "tech_indicators": "nse_daily_job",
+    "fii_dii": "nse_daily_job", "nse_actions": "nse_daily_job", "news_sentiment": "nse_daily_job",
+    "signals": "nse_daily_job", "block_deals": "nse_daily_job",
+    "fno_data": "nse_fno_job", "bulk_deals": "bse_bulk_job",
+    "screener": "nse_weekly_job", "shareholding_pattern": "nse_weekly_job",
+    "rbi_macro": "nse_weekly_job", "mospi_macro": "nse_weekly_job", "rbi_dbie": "nse_weekly_job",
+    "insider_trades": "nse_weekly_job", "google_trends": "nse_weekly_job",
+    "us_prices": "us_daily_job", "sec_form4": "us_daily_job", "fred_macro": "us_weekly_job",
+}
 
 DB_URL = os.environ.get("DATABASE_URL", "postgresql://puneetgrover@localhost/stock_analyzer")
 WATCHLIST = "Default"
@@ -183,4 +196,71 @@ def data_quality_sensor(context):
                                              "open_gaps": str(count)})
 
 
-ALL_SENSORS = [watchlist_change_sensor, indicator_recompute_sensor, data_quality_sensor]
+@sensor(
+    name="watchdog_sensor",
+    minimum_interval_seconds=1800,   # 30 min
+    jobs=[nse_daily_job, nse_weekly_job, nse_fno_job, bse_bulk_job, us_daily_job, us_weekly_job],
+    default_status=DefaultSensorStatus.RUNNING,
+    description=(
+        "Every 30 min: re-trigger any source whose last successful run is stale "
+        "(daily > 26h, weekly > 8d). Max ~3 retries/source/day via run_key slotting. "
+        "Logs retries to STATUS.md."
+    ),
+)
+def watchdog_sensor(context):
+    from datetime import datetime, timedelta
+    try:
+        conn = psycopg2.connect(DB_URL)
+    except Exception as e:  # noqa: BLE001
+        return SkipReason(f"DB unreachable: {e}")
+    cur = conn.cursor()
+    cur.execute("SELECT source, tier, status, completed_at FROM data_refresh_log")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    now = datetime.now()
+    stale = []
+    for source, tier, status, completed_at in rows:
+        job = SOURCE_JOB.get(source)
+        if not job:
+            continue
+        age_limit = timedelta(hours=26) if tier == "daily" else (timedelta(days=8) if tier == "weekly" else None)
+        if age_limit is None:
+            continue
+        if completed_at is None or (now - completed_at) > age_limit:
+            stale.append((source, job))
+
+    if not stale:
+        return SkipReason("All scheduled sources are fresh.")
+
+    today = now.strftime("%Y%m%d")
+    slot = now.hour // 8                      # 3 slots/day -> max ~3 retries/source/day
+    triggered_jobs, lines = set(), []
+    requests = []
+    for source, job in stale:
+        # one RunRequest per stale JOB per slot (dedup by run_key)
+        if job in triggered_jobs:
+            continue
+        triggered_jobs.add(job)
+        requests.append(RunRequest(job_name=job, run_key=f"watchdog-{job}-{today}-{slot}",
+                                   tags={"trigger": "watchdog_sensor"}))
+        lines.append(f"  - {job}: stale source(s) {', '.join(s for s, j in stale if j == job)}")
+
+    _log_watchdog(today, lines)
+    context.log.info(f"watchdog: re-triggering {len(requests)} job(s) for {len(stale)} stale source(s)")
+    return requests
+
+
+def _log_watchdog(day, lines):
+    import os as _os
+    from datetime import datetime as _dt
+    path = _os.path.join(_ROOT, "STATUS.md")
+    try:
+        with open(path, "a") as f:
+            f.write(f"\n### Watchdog retry — {_dt.now().strftime('%Y-%m-%d %H:%M')}\n" + "\n".join(lines) + "\n")
+    except Exception:
+        pass
+
+
+ALL_SENSORS = [watchlist_change_sensor, indicator_recompute_sensor, data_quality_sensor, watchdog_sensor]

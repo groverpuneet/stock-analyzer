@@ -50,3 +50,14 @@
 ### Data quality audit — nse_weekly @ 2026-06-28 13:24
 - gaps: {'fundamentals': 4, 'shareholding': 3} (total 7)
 - 4 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60), CUB(75)
+
+### Watchdog retry — 2026-06-28 19:42
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Data quality audit — nse_weekly @ 2026-06-28 14:45
+- gaps: {'fundamentals': 4, 'shareholding': 3} (total 7)
+- 4 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60), CUB(75)
+
+### Data quality audit — nse_daily @ 2026-06-28 14:45
+- gaps: {'ohlcv': 0, 'indicators': 0, 'signals': 0, 'news': 79} (total 79)
+- 4 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60), CUB(75)
