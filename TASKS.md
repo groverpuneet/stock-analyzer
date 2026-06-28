@@ -54,13 +54,14 @@
   - Dagster asset: bse_bulk_deals (nse_daily group) → bse_bulk_job at 16:30 IST, feeds into nse_signals
   - --bse-bulk flag added to scheduler/daily_tasks.py
 
-- [ ] MF portfolio holdings — what each mutual fund owns monthly
-  - Source: AMFI monthly disclosure — BLOCKED: new AMFI site is Next.js SPA; portfolio pages 404;
-    individual AMC download URLs 403/404; no consolidated API endpoint accessible
-  - Workaround path: scrape 44 individual AMC websites (each has its own PDF format) — deferred
-  - DII% in shareholding_pattern already captures aggregate MF+insurance ownership direction
-  - Table: mf_holdings (new) — deferred until accessible API found
-  - No personal data involved
+- [x] MF stock holdings — DII proxy implementation
+  - Source: shareholding_pattern DII% (Screener.in quarterly filings)
+  - Note: Detailed MF portfolio (which MFs hold which stocks) BLOCKED — AMFI portal requires login;
+    all alternatives blocked (Moneycontrol 403, Tickertape 404, ValueResearch timeout, mfapi.in NAV only)
+  - Current solution: DII% as proxy for MF ownership (DII = MFs + insurance + banks + pension)
+  - Table: mf_stock_holdings — 737 rows (2024-06 to 2026-06), QoQ changes tracked
+  - Dagster asset: nse_mf_holdings (nse_monthly group, 1st of month 02:00 IST)
+  - Revisit: When AMFI API becomes available or another stock-level MF source found
 
 - [x] Google Trends — search interest as sentiment proxy
   - Source: pytrends library (geo=IN, company names as search terms)
@@ -165,13 +166,12 @@
   - No new table; folded into existing collect_news() → nse_news_sentiment asset,
     source stays 'news_sentiment'. Verified clean US matches (AAPL, BAC, NVDA, NKE)
 
-- [ ] Congress trades — US politicians stock trades (high signal)  ⏸ BLOCKED: pending API key
-  - Source: Quiver Quant API (free tier) — token unavailable: Quiver dashboard returning
-    HTTP 500 when issuing API keys (2026-06-28). Revisit when the dashboard is back up.
-  - Keyless fallback ruled out: House/Senate Stock Watcher S3 buckets now return AccessDenied.
+- [ ] Congress trades — US politicians stock trades (high signal)  ⏸ DEFERRED
+  - Source: BLOCKED — Capitol Trades requires auth; House/Senate Stock Watcher S3 buckets
+    return AccessDenied; Quiver Quant costs $25/month.
   - Table: congress_trades (new) — politician, symbol, transaction, amount, date
   - Dagster asset: congress_trades → feeds into us_signals
-  - Schedule: Daily
+  - Revisit: When free accessible source found or Quiver offers free API tier again
 
 ---
 
@@ -213,6 +213,23 @@
 4. Committed with message: feat: {integration_name} — {row_count} rows, {source}
 5. TASKS.md updated (check the box)
 6. ENGINEERING.md updated with new data source
+
+---
+
+## Blocked/Deferred — Research Needed
+
+- [ ] Research alternative free sources for MF portfolio holdings at stock level
+  - AMFI portal requires login; all tested alternatives blocked (Moneycontrol, Tickertape, ValueResearch, mfapi.in)
+  - Need: Which specific MFs hold which stocks (not just aggregate DII%)
+  - Check: New AMFI API, finology.in, stockedge.com, other aggregators
+
+- [ ] Research alternative free sources for US Congress trades
+  - Capitol Trades requires auth; House/Senate Stock Watcher S3 blocked; Quiver Quant $25/month
+  - Check: OpenSecrets API, CapitolGains, senatestockwatcher.com, new free sources
+
+- [ ] Check if Quiver Quant offers free API access again
+  - Currently $25/month; dashboard was returning HTTP 500 when trying to issue keys (2026-06-28)
+  - Revisit periodically to see if free tier returns
 
 ---
 

@@ -29,7 +29,32 @@ async function get<T>(url: string): Promise<T> {
   return r.json();
 }
 
+interface DataTableParams {
+  page?: number;
+  per_page?: number;
+  sort_by?: string;
+  sort_dir?: "asc" | "desc";
+  filter_stock?: number;
+  date_from?: string;
+  date_to?: string;
+  search?: string;
+}
+
 export const api = {
+  // Raw data tables
+  dataTables: () => get<{ tables: any[] }>("/api/data/tables"),
+  dataTable: (table: string, params: DataTableParams = {}) => {
+    const p = new URLSearchParams();
+    if (params.page) p.append("page", params.page.toString());
+    if (params.per_page) p.append("per_page", params.per_page.toString());
+    if (params.sort_by) p.append("sort_by", params.sort_by);
+    if (params.sort_dir) p.append("sort_dir", params.sort_dir);
+    if (params.filter_stock) p.append("filter_stock", params.filter_stock.toString());
+    if (params.date_from) p.append("date_from", params.date_from);
+    if (params.date_to) p.append("date_to", params.date_to);
+    if (params.search) p.append("search", params.search);
+    return get<any>(`/api/data/${table}?${p}`);
+  },
   signals: (verdict?: string) =>
     get<SignalsResponse>(`/api/signals${verdict ? `?verdict=${verdict}` : ""}`),
   stock: (id: number) => get<any>(`/api/stocks/${id}`),
