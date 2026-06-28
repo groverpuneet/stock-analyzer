@@ -121,7 +121,21 @@ def nse_fno_data(context) -> None:
 
 @asset(
     group_name="nse_daily",
-    deps=[nse_technical_indicators, nse_fii_dii_flows, nse_corporate_actions, nse_news_sentiment, nse_fno_data],
+    description=(
+        "NSE block deals: large negotiated trades executed in the pre-open block window. "
+        "Stored in bulk_deals table with deal_type=block. "
+        "Source: NSE snapshot-capital-market-largedeal API."
+    ),
+)
+def nse_block_deals(context) -> None:
+    from data_collectors.insider_bulk_collector import collect_block_deals
+    stored = collect_block_deals(days=7)
+    context.log.info(f"Block deals stored: {stored}")
+
+
+@asset(
+    group_name="nse_daily",
+    deps=[nse_technical_indicators, nse_fii_dii_flows, nse_corporate_actions, nse_news_sentiment, nse_fno_data, nse_block_deals],
     description="BUY/SELL/WATCH signal report. Reads all context data from DB after upstream assets run.",
 )
 def nse_signals(context) -> None:
@@ -324,6 +338,7 @@ defs = Definitions(
         nse_corporate_actions,
         nse_news_sentiment,
         nse_fno_data,
+        nse_block_deals,
         nse_signals,
         # nse_weekly
         nse_shareholding_pattern,

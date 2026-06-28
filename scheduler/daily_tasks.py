@@ -10,6 +10,7 @@ Dagster equivalents for each flag:
   --kite-token      →  dagster job execute -f dagster/repository.py --job kite_token_job
   --fii             →  dagster asset materialize -f dagster/repository.py --select nse_fii_dii_flows
   --fno             →  dagster asset materialize -f dagster/repository.py --select nse_fno_data
+  --block-deals     →  dagster asset materialize -f dagster/repository.py --select nse_block_deals
   --actions         →  dagster asset materialize -f dagster/repository.py --select nse_corporate_actions
   --screener        →  dagster asset materialize -f dagster/repository.py --select nse_fundamentals
   --macro           →  dagster asset materialize -f dagster/repository.py --select nse_macro_indicators
@@ -52,6 +53,7 @@ from analysis.calculate_indicators import process_all_watchlist_stocks
 from analysis.generate_signals import generate_daily_report
 from data_collectors.fii_dii_collector import collect_fii_dii
 from data_collectors.fno_collector import collect_fno_data
+from data_collectors.insider_bulk_collector import collect_block_deals
 from data_collectors.nse_actions_collector import collect_nse_actions
 from data_collectors.screener_collector import collect_screener_fundamentals
 from utils.db import get_refresh_status, needs_refresh
@@ -120,6 +122,15 @@ def task_fno():
         log.info(f"=== TASK DONE: F&O data — {result} ===")
     except Exception as e:
         log.error(f"=== TASK FAILED: F&O data — {e} ===", exc_info=True)
+
+
+def task_block_deals():
+    log.info("=== TASK START: Block deals ===")
+    try:
+        stored = collect_block_deals(days=7)
+        log.info(f"=== TASK DONE: Block deals — {stored} rows ===")
+    except Exception as e:
+        log.error(f"=== TASK FAILED: Block deals — {e} ===", exc_info=True)
 
 
 def task_nse_actions():
@@ -286,6 +297,8 @@ if __name__ == "__main__":
         task_fii_dii()
     elif '--fno' in args:
         task_fno()
+    elif '--block-deals' in args:
+        task_block_deals()
     elif '--actions' in args:
         task_nse_actions()
     elif '--macro' in args:
@@ -320,6 +333,7 @@ Manual task flags (for debugging / backfill):
   --kite-token       refresh Kite access token
   --fii              FII/DII flows
   --fno              F&O data (India VIX + PCR from NSE archives)
+  --block-deals      NSE block deals (large negotiated trades)
   --actions          NSE corporate actions
   --screener         Screener.in fundamentals
   --macro            RBI macro indicators

@@ -26,6 +26,12 @@
   - Dagster asset: nse_fno_data (nse_daily group) + dedicated nse_fno_job (16:45 IST)
   - Note: Per-strike option chain blocked by NSE JS challenge; max_pain NULL pending browser automation
 
+- [x] Block deals — large negotiated trades (separate from bulk deals)
+  - Source: NSE snapshot-capital-market-largedeal API (BLOCK_DEALS_DATA key)
+  - Table: bulk_deals with deal_type='block', source='nse_block' — 25 rows (2026-06-25)
+  - Dagster asset: nse_block_deals (nse_daily group, feeds into nse_signals)
+  - --block-deals flag added to scheduler/daily_tasks.py
+
 - [x] Shareholding pattern — promoter %, FII %, DII %, government %, public %
   - Source: Screener.in (aggregates NSE/BSE SEBI quarterly filings)
   - Table: shareholding_pattern — 120 rows (10 stocks × 12 quarters), 2023-Q2 to 2026-Q1/Q2
@@ -39,13 +45,6 @@
 ---
 
 ## Tier 1 — High signal, NSE market data (do next, in order)
-
-- [ ] Block deals — large negotiated trades (separate from bulk deals)
-  - Source: NSE API (snapshot-capital-market-largedeal?type=block_deals)
-  - Table: existing bulk_deals with deal_type=block
-  - Dagster asset: block_deals → feeds into signals
-  - Schedule: Daily 4:30 PM IST
-  - No personal data involved
 
 - [ ] BSE bulk + block deals — BSE-listed stocks not on NSE
   - Source: BSE API (https://api.bseindia.com/BseIndiaAPI/api/bddeals/w)

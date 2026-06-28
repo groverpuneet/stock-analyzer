@@ -135,6 +135,95 @@ def collect_bulk_deals(days=7):
     return stored
 
 
+def collect_block_deals(days=7):
+    """
+    Collect NSE block deals from snapshot-capital-market-largedeal API.
+    Block deals = large negotiated trades executed in a dedicated window before market open.
+    Stored in bulk_deals table with deal_type='block', source='nse_block'.
+    """
+    import requests
+    log.info("Collecting block deals...")
+    stock_map = get_stock_id_map()
+
+    HEADERS = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://www.nseindia.com/',
+    }
+
+    def safe_float(val):
+        try:
+            return float(str(val).replace(',', '').strip()) if val and str(val).strip() not in ('', '-', 'nan') else None
+        except (ValueError, TypeError):
+            return None
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    # Ensure data_refresh_log entry exists
+    cur.execute("""
+        INSERT INTO data_refresh_log (source, tier, status, rows_upserted)
+        VALUES ('block_deals', 'daily', 'never_run', 0)
+        ON CONFLICT (source) DO NOTHING
+    """)
+    conn.commit()
+
+    stored = 0
+    try:
+        from_date, to_date = get_date_range(days)
+        s = requests.Session()
+        s.get('https://www.nseindia.com', headers=HEADERS, timeout=10)
+        time.sleep(1)
+
+        url = (
+            f'https://www.nseindia.com/api/snapshot-capital-market-largedeal'
+            f'?from={from_date}&to={to_date}&type=block_deals'
+        )
+        resp = s.get(url, headers=HEADERS, timeout=15)
+        if resp.status_code != 200:
+            log.warning(f"Block deals API returned {resp.status_code}")
+        else:
+            records = resp.json().get('BLOCK_DEALS_DATA', [])
+            log.info(f"  Block deals from API: {len(records)}")
+            for rec in records:
+                symbol = str(rec.get('symbol', '')).upper().strip()
+                stock_id = stock_map.get(symbol)
+                date_str = str(rec.get('date', '')).strip()
+                try:
+                    deal_date = datetime.strptime(date_str, '%d-%b-%Y').date()
+                except ValueError:
+                    deal_date = date.today()
+                try:
+                    cur.execute("""
+                        INSERT INTO bulk_deals
+                            (stock_id, date, deal_type, client_name, transaction, quantity, price, source)
+                        VALUES (%s, %s, 'block', %s, %s, %s, %s, 'nse_block')
+                        ON CONFLICT DO NOTHING
+                    """, (
+                        stock_id, deal_date,
+                        str(rec.get('clientName', ''))[:200],
+                        str(rec.get('buySell', ''))[:10],
+                        safe_float(rec.get('qty')),
+                        safe_float(rec.get('watp')),
+                    ))
+                    stored += 1
+                except Exception as e:
+                    log.warning(f"  Block deal insert failed for {symbol}: {e}")
+    except Exception as e:
+        log.warning(f"Block deals collection failed: {e}")
+
+    conn.commit()
+    cur.execute(
+        "UPDATE data_refresh_log SET status='success', completed_at=NOW(), rows_upserted=%s WHERE source='block_deals'",
+        (stored,)
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    log.info(f"  Block deals stored: {stored}")
+    return stored
+
+
 def print_summary():
     conn = get_conn(); cur = conn.cursor()
     print(f"\n{'='*65}\nINSIDER TRADES — last 7 days\n{'='*65}")
