@@ -36,7 +36,7 @@ from assets.nse_weekly import (  # noqa: E402
     nse_shareholding_pattern, nse_expiry_calendar, nse_google_trends, nse_weekly_audit,
     nse_quarterly_financials, nse_analyst_targets, nse_pledging_alerts, nse_sast_disclosures,
 )
-from assets.nse_monthly import nse_model_refresh  # noqa: E402
+from assets.nse_monthly import nse_model_refresh, nse_mf_holdings  # noqa: E402
 from assets.maintenance import nse_indicator_recompute, nse_gap_fill  # noqa: E402
 from assets.us_daily import us_raw_prices, us_insider_trades, us_signals, us_fear_greed  # noqa: E402
 from assets.us_weekly import us_macro, us_13f_holdings  # noqa: E402
@@ -58,7 +58,7 @@ defs = Definitions(
         nse_shareholding_pattern, nse_expiry_calendar, nse_google_trends, nse_weekly_audit,
         nse_quarterly_financials, nse_analyst_targets, nse_pledging_alerts, nse_sast_disclosures,
         # nse_monthly
-        nse_model_refresh,
+        nse_model_refresh, nse_mf_holdings,
         # maintenance
         nse_indicator_recompute, nse_gap_fill,
         # us_daily
