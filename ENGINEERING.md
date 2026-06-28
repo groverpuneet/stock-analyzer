@@ -14,9 +14,10 @@ something changes.
 4. [Database & Migrations](#4-database--migrations)
 5. [Project Structure](#5-project-structure)
 6. [Data Refresh Schedule](#6-data-refresh-schedule)
-7. [Integrations Roadmap](#7-integrations-roadmap)
-8. [Engineering Decisions Log](#8-engineering-decisions-log)
-9. [Common Errors & Fixes](#9-common-errors--fixes)
+7. [Dagster Orchestration](#7-dagster-orchestration)
+8. [Integrations Roadmap](#9-integrations-roadmap)
+9. [Engineering Decisions Log](#10-engineering-decisions-log)
+10. [Common Errors & Fixes](#11-common-errors--fixes)
 
 ---
 
@@ -290,7 +291,96 @@ python scheduler/daily_tasks.py --whatsapp
 
 ---
 
-## 7. Integrations Roadmap
+## 7. Dagster Orchestration
+
+### Why we migrated from APScheduler to Dagster
+
+APScheduler worked for a single-machine single-market setup, but has three failure modes
+we hit immediately upon expanding to multi-market:
+1. **No dependency graph** — APScheduler fires jobs by time, not by data readiness. If
+   `kite_ohlcv` runs late, `technical_indicators` fires at 16:15 on stale data anyway.
+   Dagster declares `nse_technical_indicators` as a downstream asset of `nse_raw_prices`
+   and only runs it after prices are materialized.
+2. **No UI or run history** — APScheduler has no visibility into what ran, when, and why
+   it failed. Dagster's webserver shows asset lineage, run logs, and failure alerts.
+3. **Multi-market scheduling** — NSE runs IST, US runs EST. APScheduler needs separate
+   cron expressions in UTC and manual conversion. Dagster schedules declare timezone
+   directly (`execution_timezone="Asia/Kolkata"`).
+
+### Asset graph
+
+```
+kite_infra group (daily 08:00 IST):
+  kite_token_refreshed
+
+nse_daily group (Mon-Fri 16:00 IST):
+  nse_raw_prices → nse_technical_indicators
+                                           ↘
+  nse_fii_dii_flows ───────────────────────→ nse_signals
+  nse_corporate_actions ───────────────────↗
+  nse_news_sentiment ──────────────────────↗
+
+nse_weekly group (Sunday 07:30 IST):
+  nse_stock_universe, nse_fundamentals, nse_macro_indicators, nse_insider_trades
+
+nse_monthly group (1st of month 02:00 IST):
+  nse_model_refresh
+
+us_daily group (Mon-Fri 16:30 EST — placeholder):
+  us_raw_prices → us_signals
+```
+
+### Running Dagster
+
+**Local dev (simplest — no Docker needed):**
+```bash
+pip install dagster dagster-webserver
+dagster dev -w workspace.yaml        # UI at http://localhost:3000
+```
+
+**Local dev with Postgres storage** (run history persists across restarts):
+```bash
+docker compose up dagster-db -d      # start just the metadata DB
+export DAGSTER_HOME="$PWD/dagster"
+export DAGSTER_POSTGRES_USER=dagster_user DAGSTER_POSTGRES_PASSWORD=dagster_pass
+export DAGSTER_POSTGRES_DB=dagster_db DAGSTER_POSTGRES_HOSTNAME=localhost DAGSTER_POSTGRES_PORT=5433
+dagster dev -w workspace.yaml
+```
+
+**Full Docker stack:**
+```bash
+docker compose up --build            # first build ~15-20 min (PyTorch ~2.5GB)
+docker compose up                    # subsequent starts (layer cache)
+# Open http://localhost:3000
+```
+Note: host Postgres must allow Docker bridge network connections.
+See docker-compose.yml Prerequisites section.
+
+**Triggering jobs manually:**
+```bash
+# Via Dagster CLI
+dagster job execute -f dagster/repository.py --job nse_daily_job
+dagster asset materialize -f dagster/repository.py --select nse_fii_dii_flows
+
+# Via task runner (still available for debugging)
+python scheduler/daily_tasks.py --fii
+python scheduler/daily_tasks.py --status
+```
+
+### Key files
+| File | Purpose |
+|------|---------|
+| `dagster/repository.py` | All @asset definitions, jobs, schedules — single source of truth for orchestration |
+| `workspace.yaml` | Code location for `dagster dev` (python_file mode) |
+| `dagster/workspace.docker.yaml` | Code location for Docker (grpc_server mode) |
+| `dagster/dagster.yaml` | Instance config (Postgres storage via env vars) |
+| `dagster/Dockerfile` | Image for user-code + webserver + daemon containers |
+| `docker-compose.yml` | Four services: dagster-db, user-code, webserver, daemon |
+| `scheduler/daily_tasks.py` | Manual CLI task runner (no APScheduler — Dagster schedules instead) |
+
+---
+
+## 9. Integrations Roadmap
 
 Priority order — build top to bottom.
 
@@ -315,7 +405,7 @@ Manual `.txt` export is not acceptable. Automation options when we get to it:
 
 ---
 
-## 8. Engineering Decisions Log
+## 10. Engineering Decisions Log
 
 A record of *why* we made key decisions. Future-you will thank present-you.
 
@@ -366,7 +456,7 @@ when expanding to new markets.
 
 ---
 
-## 9. Common Errors & Fixes
+## 11. Common Errors & Fixes
 
 ### `zsh: command not found: alembic` or `python`
 Virtual environment not activated.

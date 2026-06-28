@@ -1,0 +1,137 @@
+# docker-compose.yml — Dagster infrastructure for stock-analyzer
+#
+# Services:
+#   dagster-db    — Postgres 15 for Dagster run history + schedule state
+#                   (separate from stock_analyzer Postgres which runs on host port 5432)
+#   user-code     — Python gRPC server exposing all stock-analyzer assets to Dagster
+#   dagster-webserver — Dagster UI at http://localhost:3000
+#   dagster-daemon    — Runs schedules, sensors, and the run queue
+#
+# Quick start:
+#   docker compose up --build
+#   Open http://localhost:3000
+#   Turn on schedules in the UI, or trigger jobs manually.
+#
+# Prerequisites:
+#   1. Add .env vars: KITE_API_KEY, KITE_API_SECRET, KITE_USERNAME,
+#      KITE_PASSWORD, KITE_TOTP_SECRET
+#   2. Allow Docker to connect to host Postgres:
+#      Edit /opt/homebrew/var/postgresql@15/pg_hba.conf — add:
+#        host stock_analyzer puneetgrover 172.16.0.0/12 trust
+#      Then: brew services restart postgresql@15
+#   3. Make Postgres listen on all interfaces:
+#      In postgresql.conf: listen_addresses = '*'
+#      Then: brew services restart postgresql@15
+#
+# The stock_analyzer DB stays on the Mac host — user-code connects via
+# host.docker.internal (Docker Desktop for Mac resolves this automatically).
+
+version: "3.8"
+
+x-dagster-env: &dagster-env
+  DAGSTER_HOME: /opt/dagster/dagster_home
+  DAGSTER_POSTGRES_USER: dagster_user
+  DAGSTER_POSTGRES_PASSWORD: dagster_pass
+  DAGSTER_POSTGRES_DB: dagster_db
+  DAGSTER_POSTGRES_HOSTNAME: dagster-db
+  DAGSTER_POSTGRES_PORT: "5432"
+
+x-stock-env: &stock-env
+  DATABASE_URL: "postgresql://puneetgrover@host.docker.internal/stock_analyzer"
+  KITE_API_KEY: "${KITE_API_KEY}"
+  KITE_API_SECRET: "${KITE_API_SECRET}"
+  KITE_USERNAME: "${KITE_USERNAME}"
+  KITE_PASSWORD: "${KITE_PASSWORD}"
+  KITE_TOTP_SECRET: "${KITE_TOTP_SECRET}"
+
+services:
+
+  # ── Dagster metadata store ────────────────────────────────────────────────────
+  dagster-db:
+    image: postgres:15-alpine
+    container_name: dagster_db
+    environment:
+      POSTGRES_USER: dagster_user
+      POSTGRES_PASSWORD: dagster_pass
+      POSTGRES_DB: dagster_db
+    ports:
+      - "5433:5432"       # 5432 is taken by stock_analyzer Postgres on the host
+    volumes:
+      - dagster-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "dagster_user", "-d", "dagster_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── User code gRPC server ─────────────────────────────────────────────────────
+  # Runs all collector Python code. webserver + daemon call into this via gRPC.
+  user-code:
+    build:
+      context: .
+      dockerfile: dagster/Dockerfile
+    container_name: dagster_user_code
+    image: stock-analyzer-dagster:latest
+    restart: on-failure
+    environment:
+      <<: *stock-env
+    volumes:
+      - .:/opt/dagster/app              # mount live code (no rebuild needed for code changes)
+      - ./.kite_access_token:/opt/dagster/app/.kite_access_token  # token file written by kite_token_job
+    ports:
+      - "4000:4000"
+    command: >
+      dagster code-server start
+        --host 0.0.0.0
+        --port 4000
+        -f /opt/dagster/app/dagster/repository.py
+
+  # ── Dagster webserver (UI) ────────────────────────────────────────────────────
+  dagster-webserver:
+    build:
+      context: .
+      dockerfile: dagster/Dockerfile
+    container_name: dagster_webserver
+    image: stock-analyzer-dagster:latest
+    restart: on-failure
+    environment:
+      <<: *dagster-env
+    volumes:
+      - .:/opt/dagster/app
+      - dagster-home:/opt/dagster/dagster_home
+    ports:
+      - "3000:3000"
+    command: >
+      dagster-webserver
+        -h 0.0.0.0
+        -p 3000
+        -w /opt/dagster/app/dagster/workspace.docker.yaml
+    depends_on:
+      dagster-db:
+        condition: service_healthy
+      user-code:
+        condition: service_started
+
+  # ── Dagster daemon (schedules, sensors, run queue) ────────────────────────────
+  dagster-daemon:
+    build:
+      context: .
+      dockerfile: dagster/Dockerfile
+    container_name: dagster_daemon
+    image: stock-analyzer-dagster:latest
+    restart: on-failure
+    environment:
+      <<: *dagster-env
+    volumes:
+      - .:/opt/dagster/app
+      - dagster-home:/opt/dagster/dagster_home
+    command: dagster-daemon run
+    depends_on:
+      dagster-db:
+        condition: service_healthy
+      user-code:
+        condition: service_started
+
+volumes:
+  dagster-db-data:
+  dagster-home:

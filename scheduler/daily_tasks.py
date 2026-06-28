@@ -1,51 +1,45 @@
 """
-scheduler/daily_tasks.py — unified multi-tier scheduler
+scheduler/daily_tasks.py — direct task runner and status monitor
 
-Tiers and schedule (all IST):
-  Daily     Every    08:00   Kite token refresh (automated login)
-  Daily     Mon-Fri  16:00   OHLCV prices (Kite)
-  Daily     Mon-Fri  16:15   Technical indicators
-  Daily     Mon-Fri  16:30   FII/DII flows
-  Daily     Mon-Fri  16:45   NSE corporate actions + earnings calendar
-  Daily     Mon-Fri  17:00   Signal report
+APScheduler has been replaced by Dagster. Schedules now live in dagster/repository.py.
+This file keeps its CLI flags as convenience wrappers for manual one-off runs,
+debugging, and backfill — without needing to open the Dagster UI.
 
-  Weekly    Sunday   07:30   Expand stock universe (NSE EQ instruments)
-  Weekly    Sunday   08:00   Screener.in fundamentals
-  Weekly    Sunday   08:30   RBI macro indicators  ← moved from monthly
-  Weekly    Sunday   09:00   Insider trades + Bulk deals
-  Weekly    Sunday   09:30   Sector indices + Google Trends
+Dagster equivalents for each flag:
+  --status          →  python scheduler/daily_tasks.py --status  (still the fastest way)
+  --kite-token      →  dagster job execute -f dagster/repository.py --job kite_token_job
+  --fii             →  dagster asset materialize -f dagster/repository.py --select nse_fii_dii_flows
+  --actions         →  dagster asset materialize -f dagster/repository.py --select nse_corporate_actions
+  --screener        →  dagster asset materialize -f dagster/repository.py --select nse_fundamentals
+  --macro           →  dagster asset materialize -f dagster/repository.py --select nse_macro_indicators
+  --insider         →  dagster asset materialize -f dagster/repository.py --select nse_insider_trades
+  --news            →  dagster asset materialize -f dagster/repository.py --select nse_news_sentiment
+  --expand-universe →  dagster asset materialize -f dagster/repository.py --select nse_stock_universe
+  --model-refresh   →  dagster job execute -f dagster/repository.py --job nse_monthly_job
+  --daily           →  dagster job execute -f dagster/repository.py --job nse_daily_job
+  --weekly          →  dagster job execute -f dagster/repository.py --job nse_weekly_job
 
-  Monthly   1st Sun  06:00   Model refresh (scores + FinBERT + baselines)
-
-  Quarterly  (manual trigger after results season)
-
-Engineering note on why we have a central scheduler:
-  Each collector could have its own cron job in crontab. But a single Python
-  scheduler gives us: shared logging, dependency ordering (indicators after
-  OHLCV), guards (needs_refresh), and one place to see all job statuses.
-  The tradeoff is that if this process dies, everything stops. For production
-  you'd use a proper job queue (Celery + Redis) or a managed scheduler
-  (AWS EventBridge). For now, APScheduler is the right level of complexity.
+Start Dagster:
+  dagster dev -w workspace.yaml           # local dev — UI at localhost:3000
+  docker compose up --build               # full Docker stack
 
 Commands:
-  python scheduler/daily_tasks.py              # live scheduler
-  python scheduler/daily_tasks.py --test       # run all tasks right now
-  python scheduler/daily_tasks.py --status     # show refresh log
-  python scheduler/daily_tasks.py --kite-token       # refresh Kite access token now
-  python scheduler/daily_tasks.py --expand-universe  # sync full NSE EQ instrument list
+  python scheduler/daily_tasks.py --status           # show data_refresh_log
+  python scheduler/daily_tasks.py --kite-token       # refresh Kite access token
+  python scheduler/daily_tasks.py --fii              # run FII/DII only
+  python scheduler/daily_tasks.py --actions          # run NSE actions only
   python scheduler/daily_tasks.py --screener         # run screener only
-  python scheduler/daily_tasks.py --fii        # run FII/DII only
-  python scheduler/daily_tasks.py --actions    # run NSE actions only
-  python scheduler/daily_tasks.py --macro      # run RBI macro only
-  python scheduler/daily_tasks.py --insider    # run insider trades + bulk deals only
-  python scheduler/daily_tasks.py --model-refresh  # run monthly model refresh only
+  python scheduler/daily_tasks.py --macro            # run RBI macro only
+  python scheduler/daily_tasks.py --insider          # run insider trades + bulk deals only
+  python scheduler/daily_tasks.py --news             # run news sentiment only
+  python scheduler/daily_tasks.py --expand-universe  # sync full NSE EQ instrument list
+  python scheduler/daily_tasks.py --model-refresh    # run monthly model refresh
+  python scheduler/daily_tasks.py --daily            # run full daily pipeline
+  python scheduler/daily_tasks.py --weekly           # run full weekly pipeline
 """
 import sys
 import os
 from datetime import datetime
-
-from apscheduler.schedulers.blocking import BlockingScheduler
-from apscheduler.triggers.cron import CronTrigger
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -65,14 +59,8 @@ from utils.logger import get_logger
 
 log = get_logger(__name__)
 
-IST = 'Asia/Kolkata'
-
 
 # ── Task wrappers ──────────────────────────────────────────────────────────────
-# Each wrapper:
-#   1. Logs start and end with the scheduler logger
-#   2. Catches exceptions so one failed task doesn't kill the scheduler
-#   3. The actual collector handles its own refresh_log update + detailed logging
 
 def task_ohlcv():
     log.info("=== TASK START: OHLCV prices ===")
@@ -129,7 +117,6 @@ def task_nse_actions():
 
 
 def task_screener():
-    """Weekly — guarded against re-runs within 6 days."""
     log.info("=== TASK START: Screener.in fundamentals ===")
     if not needs_refresh('screener', min_hours=6 * 24):
         log.info("Screener: skipping — ran within last 6 days")
@@ -151,20 +138,19 @@ def task_news_sentiment():
 
 
 def task_rbi_macro():
-    """
-    Weekly (moved from monthly) — RBI data including repo rate, CPI, IIP.
-    Collector stub for now; full implementation in next session.
-    """
     log.info("=== TASK START: RBI macro indicators ===")
     if not needs_refresh('rbi_macro', min_hours=6 * 24):
         log.info("RBI macro: skipping — ran within last 6 days")
         return
-    log.warning("RBI macro collector not yet implemented — skipping")
-    log.info("=== TASK DONE: RBI macro indicators (stub) ===")
+    try:
+        from data_collectors.rbi_macro_collector import collect_rbi_macro
+        collect_rbi_macro()
+        log.info("=== TASK DONE: RBI macro indicators ===")
+    except Exception as e:
+        log.error(f"=== TASK FAILED: RBI macro — {e} ===", exc_info=True)
 
 
 def task_insider_bulk():
-    """Weekly — insider trades + bulk deals, last 7 days."""
     log.info("=== TASK START: Insider trades + Bulk deals ===")
     if not needs_refresh('insider_trades', min_hours=6 * 24):
         log.info("Insider/bulk: skipping — ran within last 6 days")
@@ -177,7 +163,6 @@ def task_insider_bulk():
 
 
 def task_model_refresh():
-    """Monthly (first Sunday) — signal scores, FinBERT cache, indicator baselines."""
     log.info("=== TASK START: Monthly model refresh ===")
     if not needs_refresh('model_refresh', min_hours=20 * 24):
         log.info("Model refresh: skipping — ran within last 20 days")
@@ -189,18 +174,7 @@ def task_model_refresh():
         log.error(f"=== TASK FAILED: Model refresh — {e} ===", exc_info=True)
 
 
-def task_sector_indices():
-    """Weekly — Nifty sector index weights and Google Trends. Stub for now."""
-    log.info("=== TASK START: Sector indices + Google Trends ===")
-    if not needs_refresh('sector_indices', min_hours=6 * 24):
-        log.info("Sector indices: skipping — ran within last 6 days")
-        return
-    log.warning("Sector indices collector not yet implemented — skipping")
-    log.info("=== TASK DONE: Sector indices (stub) ===")
-
-
 def task_expand_universe():
-    """Weekly — sync full NSE EQ instrument list into stocks table."""
     log.info("=== TASK START: Expand stock universe ===")
     if not needs_refresh('stock_universe', min_hours=6 * 24):
         log.info("Stock universe: skipping — ran within last 6 days")
@@ -213,7 +187,6 @@ def task_expand_universe():
 
 
 def task_kite_token():
-    """Daily — refresh Kite access token at 8am IST before market tasks run."""
     log.info("=== TASK START: Kite token refresh ===")
     try:
         kite_refresh_token()
@@ -222,42 +195,24 @@ def task_kite_token():
         log.error(f"=== TASK FAILED: Kite token refresh — {e} ===", exc_info=True)
 
 
-def task_whatsapp():
-    """
-    Daily 07:00 AM IST — before market open.
-    Processes any .txt files dropped into whatsapp_exports/ overnight.
-    Guards with needs_refresh so re-running manually won't double-process.
-    """
-    log.info("=== TASK START: WhatsApp signals ===")
-    try:
-        pass  # WhatsApp collector not yet deployed
-        log.info("=== TASK DONE: WhatsApp signals ===")
-    except Exception as e:
-        log.error(f"=== TASK FAILED: WhatsApp — {e} ===", exc_info=True)
-
-
 # ── Pipelines ──────────────────────────────────────────────────────────────────
 
 def run_daily_pipeline():
-    """Full daily pipeline — called by --test and can be called manually."""
     log.info("Starting daily pipeline")
     task_ohlcv()
     task_indicators()
     task_fii_dii()
     task_nse_actions()
     task_signals()
-    task_whatsapp()
     log.info("Daily pipeline complete")
 
 
 def run_weekly_pipeline():
-    """Full weekly pipeline."""
     log.info("Starting weekly pipeline")
     task_expand_universe()
     task_screener()
     task_rbi_macro()
     task_insider_bulk()
-    task_sector_indices()
     log.info("Weekly pipeline complete")
 
 
@@ -283,64 +238,9 @@ def print_status():
         err = f"  ← {r['error_message'][:35]}" if r['status'] == 'error' and r['error_message'] else ''
         print(f"  {status_icon} {r['source']:<23} {r['tier']:<10} {r['status']:<12} {last:<22} {r['rows_upserted']:>6}{err}")
 
-    print(f"\n{'='*80}\n")
-
-
-# ── Scheduler ──────────────────────────────────────────────────────────────────
-
-def start_scheduler():
-    scheduler = BlockingScheduler()
-
-    jobs = [
-        # ── Daily Mon-Fri ──────────────────────────────────────────────────────
-        (task_ohlcv,          CronTrigger(day_of_week='mon-fri', hour=16, minute=0,  timezone=IST), 'daily_ohlcv'),
-        (task_indicators,     CronTrigger(day_of_week='mon-fri', hour=16, minute=15, timezone=IST), 'daily_indicators'),
-        (task_fii_dii,        CronTrigger(day_of_week='mon-fri', hour=16, minute=30, timezone=IST), 'daily_fii_dii'),
-        (task_nse_actions,    CronTrigger(day_of_week='mon-fri', hour=16, minute=45, timezone=IST), 'event_nse_actions'),
-        (task_signals,        CronTrigger(day_of_week='mon-fri', hour=17, minute=0,  timezone=IST), 'daily_signals'),
-        (task_news_sentiment, CronTrigger(day_of_week='mon-fri', hour=17, minute=15, timezone=IST), 'daily_news_sentiment'),
-
-        # ── Pre-market Daily ──────────────────────────────────────────────────
-        (task_kite_token,     CronTrigger(hour=8, minute=0, timezone=IST), 'daily_kite_token'),
-        (task_whatsapp,       CronTrigger(day_of_week='mon-fri', hour=7,   minute=0,  timezone=IST), 'daily_whatsapp'),
-
-        # ── Monthly 1st of month ──────────────────────────────────────────────
-        (task_model_refresh,  CronTrigger(day='1', hour=2, minute=0, timezone=IST), 'monthly_model_refresh'),
-
-        # ── Weekly Sunday ──────────────────────────────────────────────────────
-        (task_expand_universe, CronTrigger(day_of_week='sun', hour=7,  minute=30, timezone=IST), 'weekly_expand_universe'),
-        (task_screener,        CronTrigger(day_of_week='sun', hour=8,  minute=0,  timezone=IST), 'weekly_screener'),
-        (task_rbi_macro,      CronTrigger(day_of_week='sun', hour=8,  minute=30, timezone=IST), 'weekly_rbi_macro'),
-        (task_insider_bulk,   CronTrigger(day_of_week='sun', hour=9,  minute=0,  timezone=IST), 'weekly_insider_bulk'),
-        (task_sector_indices, CronTrigger(day_of_week='sun', hour=9,  minute=30, timezone=IST), 'weekly_sectors'),
-    ]
-
-    for fn, trigger, job_id in jobs:
-        scheduler.add_job(fn, trigger, id=job_id, replace_existing=True)
-
-    log.info("Scheduler started")
-    print(f"\n{'='*60}")
-    print("SCHEDULER RUNNING  (Ctrl+C to stop)")
-    print(f"{'='*60}")
-    print("  Daily   Every    08:00  Kite token refresh (auto-login)")
-    print("  Daily   Mon-Fri  16:00  OHLCV prices")
-    print("  Daily   Mon-Fri  16:15  Technical indicators")
-    print("  Daily   Mon-Fri  16:30  FII/DII flows")
-    print("  Daily   Mon-Fri  16:45  NSE corporate actions")
-    print("  Daily   Mon-Fri  17:00  Signal report")
-    print("  Monthly 1st      02:00  Model refresh (scores + FinBERT + baselines)")
-    print("  Weekly  Sunday   07:30  Expand stock universe (NSE EQ)")
-    print("  Weekly  Sunday   08:00  Screener.in fundamentals")
-    print("  Weekly  Sunday   08:30  RBI macro indicators")
-    print("  Weekly  Sunday   09:00  Insider trades + Bulk deals")
-    print("  Weekly  Sunday   09:30  Sector indices")
-    print(f"{'='*60}\n")
-
-    try:
-        scheduler.start()
-    except (KeyboardInterrupt, SystemExit):
-        log.info("Scheduler stopped by user")
-        print("\nScheduler stopped")
+    print(f"\n{'='*80}")
+    print("Scheduler: Dagster  |  UI: http://localhost:3000  |  dagster dev -w workspace.yaml")
+    print(f"{'='*80}\n")
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
@@ -350,11 +250,8 @@ if __name__ == "__main__":
 
     if '--status' in args:
         print_status()
-    elif '--test' in args:
-        log.info("Running full test pipeline")
-        run_daily_pipeline()
-        run_weekly_pipeline()
-        print_status()
+    elif '--kite-token' in args:
+        task_kite_token()
     elif '--screener' in args:
         task_screener()
     elif '--fii' in args:
@@ -363,8 +260,6 @@ if __name__ == "__main__":
         task_nse_actions()
     elif '--macro' in args:
         task_rbi_macro()
-    elif '--kite-token' in args:
-        task_kite_token()
     elif '--expand-universe' in args:
         task_expand_universe()
     elif '--insider' in args:
@@ -373,11 +268,33 @@ if __name__ == "__main__":
         task_model_refresh()
     elif '--news' in args:
         task_news_sentiment()
-    elif '--whatsapp' in args:
-        task_whatsapp()
     elif '--daily' in args:
         run_daily_pipeline()
     elif '--weekly' in args:
         run_weekly_pipeline()
     else:
-        start_scheduler()
+        print(f"""
+{'='*60}
+STOCK ANALYZER — Task Runner
+{'='*60}
+
+The scheduler is now Dagster. To start it:
+
+  dagster dev -w workspace.yaml      # local dev (UI at localhost:3000)
+  docker compose up --build          # full Docker stack
+
+Manual task flags (for debugging / backfill):
+  --status           show data refresh log
+  --kite-token       refresh Kite access token
+  --fii              FII/DII flows
+  --actions          NSE corporate actions
+  --screener         Screener.in fundamentals
+  --macro            RBI macro indicators
+  --insider          insider trades + bulk deals
+  --news             news sentiment (FinBERT)
+  --expand-universe  sync full NSE EQ instrument list
+  --model-refresh    monthly model refresh
+  --daily            full daily pipeline
+  --weekly           full weekly pipeline
+{'='*60}
+""")

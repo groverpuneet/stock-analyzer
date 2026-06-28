@@ -7,10 +7,28 @@ beautifulsoup4
 requests
 lxml
 yfinance
-APScheduler
 streamlit
 plotly
 python-dotenv
 ta
 playwright==1.60.0
 PyOTP==2.10.0
+
+# NLP / FinBERT
+transformers
+torch
+scikit-learn
+
+# News pipeline
+feedparser
+flashtext
+rapidfuzz
+
+# NSE data
+pnsea
+nsepython
+
+# Dagster orchestration (replaces APScheduler)
+dagster
+dagster-webserver
+dagster-postgres
