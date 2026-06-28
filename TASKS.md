@@ -79,10 +79,15 @@
   - Blocker: SSL handshake failure on Mac LibreSSL 2.8.3
   - Fix: pip install pyOpenSSL and monkey-patch requests SSL context
 
-- [ ] GDP + WPI inflation
-  - Source: MoSPI MCP server (mcp.mospi.gov.in) via fastmcp
-  - Table: existing macro_indicators
-  - Requires: pip install fastmcp
+- [x] GDP + WPI inflation
+  - Source: MoSPI MCP server (mcp.mospi.gov.in) via fastmcp — datasets NAS (GDP) + WPI
+  - Collector: data_collectors/mospi_macro_collector.py (async fastmcp.Client)
+  - Table: macro_indicators — 112 rows, source='mospi_mcp'
+    - gdp_constant_price / gdp_current_price (24 quarters), gdp_growth_yoy (20, computed YoY real growth)
+    - wpi_index (28 months), wpi_inflation (16, computed YoY)
+  - Dagster asset: nse_macro_indicators (nse_weekly group) now also calls collect_mospi_macro()
+  - Latest: GDP growth Q2 FY26 = 8.23%, WPI inflation Mar-26 = 3.88%
+  - Runs on venv310 (Python 3.10) — fastmcp requires 3.10+
 
 - [x] F&O expiry calendar
   - Source: Kite Connect instruments('NFO') — 46,402 instruments, 18 unique expiries

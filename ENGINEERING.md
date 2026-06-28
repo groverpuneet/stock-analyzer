@@ -528,11 +528,25 @@ When using LLM APIs (Claude, etc.) in this project, optimize for minimum token u
 6. **Tiered scoring**: Use cheap/free local model (FinBERT) for all stocks, expensive API only for signals above threshold (e.g. score > 0.5)
 7. **File transfers**: Split base64 transfers at ~9KB chunks to avoid corruption
 
+## MoSPI Macro — GDP + WPI (DONE)
+- Source: official MoSPI MCP server at `https://mcp.mospi.gov.in/mcp` via `fastmcp.Client` (async).
+  Tools: list_datasets, get_indicators, get_metadata, get_data. Workflow: get_indicators -> get_metadata
+  (to discover arbitrary filter codes) -> get_data.
+- Collector: `data_collectors/mospi_macro_collector.py`. Wired into `nse_macro_indicators` Dagster asset.
+- GDP: dataset NAS, indicator_code=5 (Gross Domestic Product), base_year=2011-12, series=Current,
+  frequency_code=2 (Quarterly). Stores gdp_constant_price (real), gdp_current_price (nominal) in INR crore,
+  and gdp_growth_yoy (computed from constant_price vs same quarter prior FY).
+- WPI: dataset WPI, base_year=2011-12, major_group_code=1000000000 (headline index), fetched per calendar
+  year. Stores wpi_index and wpi_inflation (computed YoY from index).
+- Date convention: quarter-end date for GDP, month-start date for WPI — accumulates a time series in
+  macro_indicators; re-runs upsert on (date, market, indicator).
+- **Requires venv310 (Python 3.10+)** — fastmcp does not support 3.9.
+
 ## TODO: RBI Macro — Come Back Later
-- RBI DBIE SSL issue: Mac's LibreSSL 2.8.3 too old for RBI's server. Fix: upgrade Python SSL or use a VM/server with OpenSSL 1.1.1+
-- MoSPI CPI/IIP: data.gov.in API key broken (empty dropdown bug on portal). Website is JS-rendered, not scrapable.
-- Best path forward: integrate mcp.mospi.gov.in MCP server (official MoSPI MCP, 25 datasets, needs fastmcp pip package)
-- Current state: 8 macro indicators manually seeded for Jun-26 in macro_indicators table
+- RBI DBIE SSL issue: Mac's LibreSSL 2.8.3 too old for RBI's server. Fix: pyOpenSSL (installed in venv310)
+  OR Playwright with ignore_https_errors=True (used for forex/credit collector).
+- MoSPI CPI/IIP: data.gov.in API key broken — superseded by the MoSPI MCP server above (also serves CPI, IIP).
+- Current state: GDP + WPI now live via MoSPI MCP; RBI rates seeded + DBIE homepage scrape.
 
 ## TODO: MF Portfolio Holdings
 - AMFI portfolio holdings page is JS-rendered (Next.js) — not scrapable with requests
