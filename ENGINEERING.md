@@ -401,6 +401,37 @@ finds Default-watchlist **NSE** stocks with no `daily_prices` in 30 days that ar
 nse_news_job`. MF instruments (NAV, not OHLCV) are excluded so they don't fire forever.
 One-off backfill of stale watchlist prices: `data_collectors/backfill_watchlist_prices.py`.
 
+### Data quality framework
+Gap detection, completeness scoring, and auto-retry across every domain. Core module:
+`utils/data_quality.py`.
+
+- **Schema** (migrations 0014-0016): `data_quality_log` (one open row per gap, resolved when
+  data appears), `data_refresh_log` gains `expected_rows / actual_rows / coverage_pct /
+  gaps_detected / retry_count` (status now also `partial` / `retrying`), `stock_scores` gains
+  `data_completeness_score`.
+- **Gap detectors** (per domain): ohlcv (behind cohort's latest trading day — NSE vs US date skew
+  handled), indicators (no RSI/MACD on latest price date), fundamentals (no full row in 7d), news
+  (none in 7d), shareholding (none), signals (no composite_score today). Each logs/resolves rows
+  in `data_quality_log`.
+- **Completeness score** (0-100, weighted): price 20 · indicators 20 · signals 20 · fundamentals 15
+  · shareholding 15 · news 10. News is weighted low because availability is limited for small caps.
+- **post_run audit**: `nse_daily_audit` (after `nse_signals`) and `nse_weekly_audit` (after
+  fundamentals/shareholding) run `run_audit(domain)` — detect gaps, update completeness, append a
+  STATUS.md note for any stock < 80%.
+- **Auto-retry**: `data_quality_sensor` (every 30 min) finds unresolved gaps older than 1h and
+  triggers `nse_gap_fill_job` → `fill_gaps()`, which re-runs **only the affected stocks** (per-stock
+  for ohlcv/indicators/fundamentals; collector-level for news/scores), bumps `retry_count`, then
+  re-detects to resolve fixed gaps. Never re-runs a full job for partial data.
+- **enhanced `refresh_log`**: collectors set `meta['expected']` (and optional `meta['gaps']`); the
+  context manager records coverage_pct + `partial` status automatically.
+- **Web UI**: dashboard has a colour-coded **Quality** column (green ≥90 / yellow 70-90 / red <70),
+  a global **Data health** indicator in the header on every page (`/api/quality/health`), and
+  per-source open-gap counts on the Data Sources page.
+
+Note on residual gaps: ETFs (NIFTYBEES/ITBEES/PHARMABEES) have no company fundamentals/shareholding,
+and most small caps have no daily news — these are data-availability limits the framework surfaces
+honestly (low completeness), not collector bugs.
+
 ### RULE: daily_prices writes → recompute indicators
 **Any write to `daily_prices` must be followed by technical indicator recomputation for affected
 stocks. This is enforced via Dagster asset dependencies and the `indicator_recompute_sensor`.**

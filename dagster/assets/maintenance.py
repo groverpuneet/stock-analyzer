@@ -17,3 +17,22 @@ def nse_indicator_recompute(context) -> None:
     context.log.info(
         f"Indicator recompute: {result['recomputed']}/{result['queued']} queued stocks"
     )
+
+
+@asset(
+    group_name="maintenance",
+    description=(
+        "Targeted gap fill: re-run only what's missing for the affected stocks (not full "
+        "jobs) for open data_quality_log gaps, then re-detect to resolve fixed ones and "
+        "refresh completeness scores. Triggered by data_quality_sensor every 30 min."
+    ),
+)
+def nse_gap_fill(context) -> None:
+    from utils.data_quality import unresolved_gaps, fill_gaps
+    gaps = unresolved_gaps(older_than_minutes=60)
+    if not gaps:
+        context.log.info("No unresolved gaps older than 1h.")
+        return
+    context.log.info(f"Filling {len(gaps)} unresolved gap(s)…")
+    result = fill_gaps(gaps)
+    context.log.info(f"Gap fill: {result['filled']}")

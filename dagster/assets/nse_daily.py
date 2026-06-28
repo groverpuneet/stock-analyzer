@@ -107,3 +107,19 @@ def bse_bulk_deals(context) -> None:
 def nse_signals(context) -> None:
     from analysis.generate_signals import generate_daily_report
     generate_daily_report()
+
+
+@asset(
+    group_name="nse_daily",
+    deps=[nse_signals],
+    description=(
+        "Post-run audit: after the daily pipeline, detect coverage gaps (ohlcv/indicators/"
+        "signals/news) into data_quality_log, update per-stock data_completeness_score, and "
+        "note any stock below 80% in STATUS.md. Runs last in nse_daily_job."
+    ),
+)
+def nse_daily_audit(context) -> None:
+    from utils.data_quality import run_audit
+    summary = run_audit("nse_daily")
+    context.log.info(f"Daily audit: {summary['gaps']} gaps; "
+                     f"{len(summary['completeness']['below_80'])} stocks <80% complete")

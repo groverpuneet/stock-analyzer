@@ -70,6 +70,7 @@ export default function DataSources() {
               <th className="th">Frequency</th>
               <th className="th">Last refresh</th>
               <th className="th text-right">Rows</th>
+              <th className="th text-right">Gaps</th>
               <th className="th">Status</th>
               <th className="th text-right">Action</th>
             </tr>
@@ -85,6 +86,10 @@ export default function DataSources() {
                   {s.stale && <span className="ml-2 text-[10px] text-watch">STALE</span>}
                 </td>
                 <td className="td text-right">{s.rows_upserted ?? 0}</td>
+                <td className="td text-right">
+                  {s.gaps ? <span className="text-watch font-medium">{s.gaps}</span> : <span className="text-slate-600">0</span>}
+                  {s.retry_count ? <span className="text-[10px] text-slate-500 ml-1">↻{s.retry_count}</span> : null}
+                </td>
                 <td className="td">
                   <span className={`inline-block px-2 py-0.5 rounded-md border text-xs font-semibold ${statusClass[s.status] || statusClass.never_run}`}>
                     {s.status}

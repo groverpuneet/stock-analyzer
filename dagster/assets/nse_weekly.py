@@ -112,3 +112,19 @@ def nse_google_trends(context) -> None:
     context.log.info(
         f"Google Trends: {result['rows_upserted']} rows, {result['stocks_processed']} stocks"
     )
+
+
+@asset(
+    group_name="nse_weekly",
+    deps=[nse_fundamentals, nse_shareholding_pattern],
+    description=(
+        "Post-run audit: after the weekly pipeline, detect fundamentals/shareholding coverage "
+        "gaps into data_quality_log, update per-stock data_completeness_score, and note any "
+        "stock below 80% in STATUS.md. Runs last in nse_weekly_job."
+    ),
+)
+def nse_weekly_audit(context) -> None:
+    from utils.data_quality import run_audit
+    summary = run_audit("nse_weekly")
+    context.log.info(f"Weekly audit: {summary['gaps']} gaps; "
+                     f"{len(summary['completeness']['below_80'])} stocks <80% complete")

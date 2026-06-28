@@ -91,12 +91,24 @@ def last_updated(sources: str = "", page: str = ""):
     }
 
 
+# data_refresh_log source -> data_quality_log.table_name (for gap counts per source)
+SOURCE_TABLE = {
+    "kite_ohlcv": "daily_prices", "tech_indicators": "technical_indicators",
+    "screener": "fundamentals", "fundamentals_full": "fundamentals",
+    "news_sentiment": "news_sentiment", "shareholding_pattern": "shareholding_pattern",
+    "signals": "stock_scores",
+}
+
+
 @router.get("/sources")
 def sources():
     rows = query_all(
-        "SELECT source, tier, status, started_at, completed_at, rows_upserted, error_message "
+        "SELECT source, tier, status, started_at, completed_at, rows_upserted, error_message, "
+        "expected_rows, actual_rows, coverage_pct, retry_count "
         "FROM data_refresh_log ORDER BY source"
     )
+    gap_by_table = {r["table_name"]: r["n"] for r in query_all(
+        "SELECT table_name, COUNT(*) AS n FROM data_quality_log WHERE resolved_at IS NULL GROUP BY table_name")}
     out = []
     for r in rows:
         meta = SOURCE_META.get(r["source"], {})
@@ -107,6 +119,9 @@ def sources():
             "status": r["status"],
             "completed_at": _iso(r["completed_at"]),
             "rows_upserted": r["rows_upserted"],
+            "coverage_pct": float(r["coverage_pct"]) if r["coverage_pct"] is not None else None,
+            "retry_count": r["retry_count"],
+            "gaps": gap_by_table.get(SOURCE_TABLE.get(r["source"]), 0),
             "stale": _is_stale(r["tier"], r["completed_at"], r["status"]),
             "triggerable": meta.get("asset") is not None,
         })

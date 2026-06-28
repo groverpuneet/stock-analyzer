@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, fmt, Verdict } from "../api";
+import { api, fmt, Verdict, completenessClass } from "../api";
 import SignalBadge from "../components/SignalBadge";
 import LastUpdated from "../components/LastUpdated";
 
@@ -50,6 +50,8 @@ const cols: Col[] = [
       r.insider_buys || r.insider_sells
         ? <span className={r.insider_net > 0 ? "text-buy" : r.insider_net < 0 ? "text-sell" : ""}>{r.insider_buys}B/{r.insider_sells}S</span>
         : "—" },
+  { key: "completeness", label: "Quality", num: true, render: (r) => r.completeness == null ? "—" : `${r.completeness.toFixed(0)}%`,
+    cls: (v) => completenessClass(v) },
 ];
 
 const FILTERS: (Verdict | "ALL")[] = ["ALL", "BUY", "SELL", "WATCH", "NEUTRAL"];

@@ -185,7 +185,9 @@ def collect_screener_fundamentals(watchlist_name='Default', delay=2.0):
     print(f"Stocks: {len(stocks)}  |  Delay: {delay}s between requests\n")
 
     with refresh_log('screener') as log:
+        log['expected'] = len(stocks)          # coverage_pct = success / expected
         success = 0
+        failed_ids = []
         for stock_id, _, symbol, name in stocks:
             print(f"{symbol} ({name}):")
             try:
@@ -198,15 +200,19 @@ def collect_screener_fundamentals(watchlist_name='Default', delay=2.0):
                     print(f"  ✓  P/E={pe}  ROE={roe}%  Promoter={prom}%")
                     success += 1
                 else:
+                    failed_ids.append(stock_id)
                     print(f"  ⚠ Skipped (no data)")
             except requests.HTTPError as e:
+                failed_ids.append(stock_id)
                 print(f"  ✗ HTTP {e.response.status_code} — {symbol} may not exist on Screener")
             except Exception as e:
+                failed_ids.append(stock_id)
                 print(f"  ✗ Error: {e}")
 
             time.sleep(delay)
 
         log['rows'] = success
+        log['gaps'] = failed_ids or None
 
     print(f"\n{'='*60}")
     print(f"✓ Screener collection complete: {success}/{len(stocks)} stocks updated")

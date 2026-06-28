@@ -34,3 +34,19 @@
 - Kite TOTP auto-refresh: `.env` now has KITE_USERNAME/PASSWORD/TOTP_SECRET (loaded by container) —
   verify `kite_auth/auto_login.py` end-to-end next session.
 - Next Tier 2 item: RBI monetary policy calendar (manual seed)
+
+### Data quality audit — nse_daily @ 2026-06-28 12:55
+- gaps: {'ohlcv': 94, 'indicators': 0, 'signals': 0, 'news': 82} (total 176)
+- 4 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60), CUB(75)
+
+### Data quality audit — nse_weekly @ 2026-06-28 12:55
+- gaps: {'fundamentals': 4, 'shareholding': 3} (total 7)
+- 4 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60), CUB(75)
+
+### Data quality audit — nse_daily @ 2026-06-28 13:24
+- gaps: {'ohlcv': 0, 'indicators': 0, 'signals': 0, 'news': 82} (total 82)
+- 4 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60), CUB(75)
+
+### Data quality audit — nse_weekly @ 2026-06-28 13:24
+- gaps: {'fundamentals': 4, 'shareholding': 3} (total 7)
+- 4 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60), CUB(75)
