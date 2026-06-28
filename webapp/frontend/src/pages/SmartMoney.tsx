@@ -213,7 +213,7 @@ export default function SmartMoney() {
                   <tr>
                     <th className="px-3 py-2 text-left">Fund</th>
                     <th className="px-3 py-2 text-left">Category</th>
-                    <th className="px-3 py-2 text-left">Symbol</th>
+                    <th className="px-3 py-2 text-left">Holding</th>
                     <th className="px-3 py-2 text-right">Shares</th>
                     <th className="px-3 py-2 text-right">Value ($M)</th>
                     <th className="px-3 py-2 text-right">% Portfolio</th>
@@ -226,12 +226,15 @@ export default function SmartMoney() {
                     <tr key={i} className="border-t border-edge hover:bg-edge/50">
                       <td className="px-3 py-2 font-medium">{h.filer_name}</td>
                       <td className="px-3 py-2 text-slate-400">{h.filer_category}</td>
-                      <td className="px-3 py-2 text-blue-400">{h.symbol}</td>
+                      <td className="px-3 py-2 text-slate-200" title={h.issuer_name}>
+                        {h.symbol || h.issuer_name?.slice(0, 25) || "—"}
+                        {h.issuer_name && h.issuer_name.length > 25 && "..."}
+                      </td>
                       <td className="px-3 py-2 text-right">{formatNum(h.shares_held)}</td>
-                      <td className="px-3 py-2 text-right">{formatNum(h.market_value_usd / 1_000_000, 1)}</td>
-                      <td className="px-3 py-2 text-right">{h.pct_of_portfolio?.toFixed(2)}%</td>
-                      <td className={`px-3 py-2 text-right ${(h.qoq_change_pct || 0) > 0 ? "text-buy" : (h.qoq_change_pct || 0) < 0 ? "text-sell" : ""}`}>
-                        {formatPct(h.qoq_change_pct)}
+                      <td className="px-3 py-2 text-right">{h.market_value_usd ? formatNum(h.market_value_usd / 1_000_000, 1) : "—"}</td>
+                      <td className="px-3 py-2 text-right">{h.pct_of_portfolio ? `${h.pct_of_portfolio.toFixed(2)}%` : "—"}</td>
+                      <td className={`px-3 py-2 text-right ${(h.qoq_change_pct || 0) > 0 ? "text-buy" : (h.qoq_change_pct || 0) < 0 ? "text-sell" : "text-slate-500"}`}>
+                        {h.qoq_change_pct != null ? formatPct(h.qoq_change_pct) : "—"}
                       </td>
                       <td className="px-3 py-2 text-slate-400">{h.quarter}</td>
                     </tr>
@@ -246,43 +249,50 @@ export default function SmartMoney() {
             filteredSAST.length === 0 ? (
               <div className="text-center py-12 text-slate-400">No SAST disclosures available</div>
             ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-edge text-slate-300">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Symbol</th>
-                    <th className="px-3 py-2 text-left">Acquirer</th>
-                    <th className="px-3 py-2 text-left">Type</th>
-                    <th className="px-3 py-2 text-right">Shares</th>
-                    <th className="px-3 py-2 text-right">% Acquired</th>
-                    <th className="px-3 py-2 text-right">Total %</th>
-                    <th className="px-3 py-2 text-left">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSAST.slice(0, 100).map((s, i) => (
-                    <tr key={i} className="border-t border-edge hover:bg-edge/50">
-                      <td className="px-3 py-2">
-                        {s.stock_id ? (
-                          <Link to={`/stock/${s.stock_id}`} className="text-blue-400 hover:underline">{s.symbol}</Link>
-                        ) : s.symbol}
-                      </td>
-                      <td className="px-3 py-2">{s.acquirer_name}</td>
-                      <td className="px-3 py-2 text-slate-400">{s.acquirer_type}</td>
-                      <td className="px-3 py-2 text-right">{formatNum(s.shares_acquired)}</td>
-                      <td className="px-3 py-2 text-right">{s.pct_acquired?.toFixed(2)}%</td>
-                      <td className="px-3 py-2 text-right">{s.total_holding_pct?.toFixed(2)}%</td>
-                      <td className="px-3 py-2 text-slate-400">{formatDate(s.acquisition_date || s.disclosure_date)}</td>
+              <div>
+                <p className="text-xs text-slate-500 mb-2">Note: Detailed share counts pending — SAST data shows disclosure events only</p>
+                <table className="w-full text-sm">
+                  <thead className="bg-edge text-slate-300">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Symbol</th>
+                      <th className="px-3 py-2 text-left">Acquirer</th>
+                      <th className="px-3 py-2 text-left">Type</th>
+                      <th className="px-3 py-2 text-left">Transaction</th>
+                      <th className="px-3 py-2 text-left">Disclosure Date</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filteredSAST.slice(0, 100).map((s, i) => (
+                      <tr key={i} className="border-t border-edge hover:bg-edge/50">
+                        <td className="px-3 py-2">
+                          {s.stock_id ? (
+                            <Link to={`/stock/${s.stock_id}`} className="text-blue-400 hover:underline">{s.symbol || "—"}</Link>
+                          ) : (s.symbol || "—")}
+                        </td>
+                        <td className="px-3 py-2">{s.acquirer_name || "—"}</td>
+                        <td className="px-3 py-2 text-slate-400">{s.acquirer_type || "—"}</td>
+                        <td className="px-3 py-2">
+                          <span className={s.transaction_type?.includes("ACQUISITION") ? "text-buy" : s.transaction_type?.includes("DISPOSAL") ? "text-sell" : ""}>
+                            {s.transaction_type || "—"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-slate-400">{formatDate(s.disclosure_date || s.acquisition_date)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )
           )}
 
           {/* Insider Trades */}
           {tab === "insider" && (
             filteredInsider.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">No insider trades available</div>
+              <div className="text-center py-12 text-slate-400">
+                {market === "india"
+                  ? "India insider trades not yet collected — NSE SAST data shown in SAST tab"
+                  : "No SEC Form 4 filings available"}
+              </div>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-edge text-slate-300">
@@ -301,17 +311,17 @@ export default function SmartMoney() {
                     <tr key={i} className="border-t border-edge hover:bg-edge/50">
                       <td className="px-3 py-2">
                         {t.stock_id ? (
-                          <Link to={`/stock/${t.stock_id}`} className="text-blue-400 hover:underline">{t.symbol}</Link>
-                        ) : t.symbol}
+                          <Link to={`/stock/${t.stock_id}`} className="text-blue-400 hover:underline">{t.symbol || "—"}</Link>
+                        ) : (t.symbol || "—")}
                       </td>
                       <td className="px-3 py-2 text-slate-400">{formatDate(t.date)}</td>
-                      <td className="px-3 py-2">{t.person_name}</td>
-                      <td className="px-3 py-2 text-slate-400">{t.person_category}</td>
-                      <td className={`px-3 py-2 text-center font-medium ${t.transaction === "BUY" ? "text-buy" : t.transaction === "SELL" ? "text-sell" : ""}`}>
-                        {t.transaction}
+                      <td className="px-3 py-2">{t.person_name || "—"}</td>
+                      <td className="px-3 py-2 text-slate-400">{t.person_category || "—"}</td>
+                      <td className={`px-3 py-2 text-center font-medium ${t.transaction === "BUY" ? "text-buy" : t.transaction === "SELL" ? "text-sell" : "text-slate-400"}`}>
+                        {t.transaction || "—"}
                       </td>
-                      <td className="px-3 py-2 text-right">{formatNum(t.quantity)}</td>
-                      <td className="px-3 py-2 text-right">{t.price ? `$${formatNum(t.price, 2)}` : "—"}</td>
+                      <td className="px-3 py-2 text-right">{t.quantity ? formatNum(t.quantity) : "—"}</td>
+                      <td className="px-3 py-2 text-right">{t.price && t.price > 0 ? `$${formatNum(t.price, 2)}` : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -338,12 +348,14 @@ export default function SmartMoney() {
                   {filteredDII.slice(0, 50).map((d, i) => (
                     <tr key={i} className="border-t border-edge hover:bg-edge/50">
                       <td className="px-3 py-2">
-                        <Link to={`/stock/${d.stock_id}`} className="text-blue-400 hover:underline">{d.symbol}</Link>
+                        {d.stock_id ? (
+                          <Link to={`/stock/${d.stock_id}`} className="text-blue-400 hover:underline">{d.symbol || "—"}</Link>
+                        ) : (d.symbol || "—")}
                       </td>
-                      <td className="px-3 py-2 text-right">{d.dii_pct?.toFixed(1)}%</td>
-                      <td className="px-3 py-2 text-right">{d.prev_dii_pct?.toFixed(1)}%</td>
+                      <td className="px-3 py-2 text-right">{d.dii_pct != null ? `${d.dii_pct.toFixed(1)}%` : "—"}</td>
+                      <td className="px-3 py-2 text-right">{d.prev_dii_pct != null ? `${d.prev_dii_pct.toFixed(1)}%` : "—"}</td>
                       <td className={`px-3 py-2 text-right font-medium ${d.change_pct > 0 ? "text-buy" : d.change_pct < 0 ? "text-sell" : ""}`}>
-                        {formatPct(d.change_pct)}
+                        {d.change_pct != null ? formatPct(d.change_pct) : "—"}
                       </td>
                       <td className="px-3 py-2 text-slate-400">{formatDate(d.quarter_end)}</td>
                     </tr>
@@ -356,7 +368,9 @@ export default function SmartMoney() {
           {/* Insider Clusters (India) */}
           {tab === "clusters" && market === "india" && (
             insiderClusters.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">No insider clusters in last 30 days</div>
+              <div className="text-center py-12 text-slate-400">
+                No insider clusters found — India insider trade data not yet collected
+              </div>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-edge text-slate-300">
@@ -373,12 +387,14 @@ export default function SmartMoney() {
                   {insiderClusters.map((c, i) => (
                     <tr key={i} className="border-t border-edge hover:bg-edge/50">
                       <td className="px-3 py-2">
-                        <Link to={`/stock/${c.stock_id}`} className="text-blue-400 hover:underline">{c.symbol}</Link>
+                        {c.stock_id ? (
+                          <Link to={`/stock/${c.stock_id}`} className="text-blue-400 hover:underline">{c.symbol || "—"}</Link>
+                        ) : (c.symbol || "—")}
                       </td>
-                      <td className="px-3 py-2 text-center">{c.trade_count}</td>
-                      <td className="px-3 py-2 text-center text-buy">{c.buy_count}</td>
-                      <td className="px-3 py-2 text-center text-sell">{c.sell_count}</td>
-                      <td className="px-3 py-2 text-right">₹{formatNum(c.total_value / 10_000_000, 1)}Cr</td>
+                      <td className="px-3 py-2 text-center">{c.trade_count || 0}</td>
+                      <td className="px-3 py-2 text-center text-buy">{c.buy_count || 0}</td>
+                      <td className="px-3 py-2 text-center text-sell">{c.sell_count || 0}</td>
+                      <td className="px-3 py-2 text-right">{c.total_value ? `₹${formatNum(c.total_value / 10_000_000, 1)}Cr` : "—"}</td>
                       <td className="px-3 py-2 text-slate-400">{formatDate(c.latest_date)}</td>
                     </tr>
                   ))}
