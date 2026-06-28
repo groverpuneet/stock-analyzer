@@ -16,11 +16,21 @@ def nse_stock_universe(context) -> None:
 
 @asset(
     group_name="nse_weekly",
-    description="Fundamentals from Screener.in: P/E, P/B, ROE, ROCE, promoter holding, etc.",
+    description=(
+        "Fundamentals from Screener.in: P/E, P/B, ROE, ROCE, promoter holding, etc. "
+        "Also refreshes ~10yr monthly P/E history (Screener chart API) into fundamentals "
+        "and recomputes stock_scores.pe_percentile (current P/E vs the stock's own 5yr range)."
+    ),
 )
 def nse_fundamentals(context) -> None:
     from data_collectors.screener_collector import collect_screener_fundamentals
+    from data_collectors.screener_pe_history_collector import seed_pe_history
     collect_screener_fundamentals()
+    pe = seed_pe_history()
+    context.log.info(
+        f"PE history: {pe['rows_upserted']} rows across {pe['stocks_filled']} stocks, "
+        f"{pe['pe_percentiles_set']} percentiles set"
+    )
 
 
 @asset(

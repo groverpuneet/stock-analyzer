@@ -171,6 +171,40 @@ def trigger(req: TriggerReq):
     return result
 
 
+def _launch_sources(source_names: list[str]) -> list[dict]:
+    """Launch each source's asset once (dedupe shared assets, e.g. the 3 macro sources)."""
+    launched, seen = [], set()
+    for src in source_names:
+        asset = (SOURCE_META.get(src) or {}).get("asset")
+        if not asset or asset in seen:
+            continue
+        seen.add(asset)
+        res = dagster_client.launch_asset(asset)
+        launched.append({"source": src, "asset": asset, **res})
+    return launched
+
+
+@router.post("/trigger-all")
+def trigger_all():
+    """Refresh every triggerable source (assets deduped) — runs in parallel via Dagster."""
+    triggerable = [s for s, m in SOURCE_META.items() if m.get("asset")]
+    launched = _launch_sources(triggerable)
+    ok = sum(1 for r in launched if r.get("ok"))
+    return {"launched": launched, "count": len(launched), "ok": ok}
+
+
+@router.post("/trigger-failed")
+def trigger_failed():
+    """Refresh only sources whose last run failed or never ran."""
+    rows = query_all(
+        "SELECT source FROM data_refresh_log WHERE status IN ('error', 'never_run')"
+    )
+    names = [r["source"] for r in rows if (SOURCE_META.get(r["source"]) or {}).get("asset")]
+    launched = _launch_sources(names)
+    ok = sum(1 for r in launched if r.get("ok"))
+    return {"launched": launched, "count": len(launched), "ok": ok}
+
+
 @router.get("/run-status")
 def get_run_status(run_id: str):
     return dagster_client.run_status(run_id)

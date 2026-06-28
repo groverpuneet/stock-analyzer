@@ -7,6 +7,7 @@ import { api, fmt } from "../api";
 import SignalBadge from "../components/SignalBadge";
 import { Loading, Error } from "./Dashboard";
 import LastUpdated from "../components/LastUpdated";
+import PeHistoryChart from "../components/PeHistoryChart";
 
 export default function StockDetail() {
   const { id } = useParams();
@@ -123,6 +124,11 @@ export default function StockDetail() {
           </div>
         </Panel>
       )}
+
+      {/* P/E ratio history with valuation zones */}
+      <Panel title="P/E ratio history — current vs 1yr / 5yr average">
+        <PeHistoryChart stockId={Number(id)} />
+      </Panel>
 
       <div className="grid lg:grid-cols-2 gap-5">
         {/* Volume */}

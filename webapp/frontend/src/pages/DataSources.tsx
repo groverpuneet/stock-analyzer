@@ -6,11 +6,27 @@ import { Loading, Error } from "./Dashboard";
 export default function DataSources() {
   const [d, setD] = useState<any>(null);
   const [err, setErr] = useState<string>();
+  const [bulk, setBulk] = useState<{ kind: string; msg: string } | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(() => {
     api.refreshSources().then(setD).catch((e) => setErr(String(e)));
   }, []);
   useEffect(() => load(), [load]);
+
+  async function bulkRefresh(kind: "all" | "failed") {
+    setBulkBusy(true);
+    setBulk(null);
+    try {
+      const res = kind === "all" ? await api.triggerAll() : await api.triggerFailed();
+      setBulk({ kind, msg: `Launched ${res.ok}/${res.count} ${kind === "failed" ? "failed/never-run " : ""}source${res.count === 1 ? "" : "s"}.` });
+      setTimeout(load, 1500);
+    } catch (e) {
+      setBulk({ kind, msg: `Failed: ${e}` });
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   if (err) return <Error msg={err} />;
   if (!d) return <Loading />;
@@ -24,10 +40,20 @@ export default function DataSources() {
             Every collector, what it provides, and when it last refreshed. From <code className="text-slate-500">data_refresh_log</code>.
           </p>
         </div>
-        <button onClick={load} className="text-xs text-slate-400 hover:text-slate-200 border border-edge rounded-md px-2.5 py-1">
-          ↻ Reload
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => bulkRefresh("all")} disabled={bulkBusy || !d.dagster_healthy}
+            className="inline-flex items-center gap-1.5 text-xs font-medium border border-indigo-500/50 text-indigo-300 hover:bg-indigo-500/10 rounded-md px-3 py-1 disabled:opacity-40">
+            {bulkBusy && <span className="inline-block w-3 h-3 border-2 border-indigo-300 border-t-transparent rounded-full animate-spin" />}
+            Refresh All
+          </button>
+          <button onClick={() => bulkRefresh("failed")} disabled={bulkBusy || !d.dagster_healthy}
+            className="text-xs font-medium border border-edge text-slate-300 hover:bg-edge/60 rounded-md px-3 py-1 disabled:opacity-40">
+            Refresh All Failed
+          </button>
+          <button onClick={load} className="text-xs text-slate-400 hover:text-slate-200 border border-edge rounded-md px-2.5 py-1">↻ Reload</button>
+        </div>
       </div>
+      {bulk && <div className="text-xs text-slate-400">{bulk.msg}</div>}
 
       {!d.dagster_healthy && (
         <div className="card p-3 text-sm text-watch border-watch/30">

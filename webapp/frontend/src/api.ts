@@ -56,6 +56,10 @@ export const api = {
       body: JSON.stringify({ source }),
     }).then((r) => r.json()),
   runStatus: (runId: string) => get<any>(`/api/refresh/run-status?run_id=${runId}`),
+  dashboard: () => get<any>("/api/dashboard"),
+  peHistory: (id: number) => get<any>(`/api/stocks/${id}/pe-history`),
+  triggerAll: () => fetch("/api/refresh/trigger-all", { method: "POST" }).then((r) => r.json()),
+  triggerFailed: () => fetch("/api/refresh/trigger-failed", { method: "POST" }).then((r) => r.json()),
 };
 
 // "2026-06-28T04:03:50" -> "2h ago" / "3d ago"
