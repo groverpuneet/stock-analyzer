@@ -401,6 +401,21 @@ finds Default-watchlist **NSE** stocks with no `daily_prices` in 30 days that ar
 nse_news_job`. MF instruments (NAV, not OHLCV) are excluded so they don't fire forever.
 One-off backfill of stale watchlist prices: `data_collectors/backfill_watchlist_prices.py`.
 
+### RULE: daily_prices writes → recompute indicators
+**Any write to `daily_prices` must be followed by technical indicator recomputation for affected
+stocks. This is enforced via Dagster asset dependencies and the `indicator_recompute_sensor`.**
+
+Three layers enforce this:
+1. **Dagster dependency** — `nse_technical_indicators` declares `deps=[nse_raw_prices]`, so the daily
+   16:00 `nse_daily_job` always recomputes indicators right after prices land.
+2. **Watchlist sensor** — `watchlist_change_sensor` triggers `nse_daily_job` (which includes the
+   indicators step) when a new stock is added.
+3. **Safety net** — an `AFTER INSERT` trigger on `daily_prices` (migration 0013) queues affected
+   `stock_id`s into `recompute_queue`. `indicator_recompute_sensor` (every 5 min) drains the queue
+   via `nse_indicator_recompute_job` → `recompute_queued_indicators()`, recomputing only those
+   stocks then clearing them. This catches prices that land outside the normal job (manual backfills,
+   one-off scripts). `analysis/calculate_indicators.py` honours `DATABASE_URL` so it works in-container.
+
 ### Historical P/E + valuation percentile
 `data_collectors/screener_pe_history_collector.py` seeds ~10yr **monthly** P/E history per NSE
 watchlist stock from Screener's chart API (`/api/company/{id}/chart/?q=Price to Earning…`), stored

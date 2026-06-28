@@ -1,7 +1,12 @@
+import os
 import psycopg2
 import pandas as pd
 import numpy as np
 from datetime import datetime
+
+# Honour DATABASE_URL so this works inside the Dagster container (host.docker.internal)
+# as well as locally. Falls back to the local host DB.
+_DSN = os.environ.get("DATABASE_URL", "postgresql://puneetgrover@localhost/stock_analyzer")
 
 DB_PARAMS = {
     'dbname': 'stock_analyzer',
@@ -11,9 +16,14 @@ DB_PARAMS = {
     'port': '5432'
 }
 
+
+def _connect():
+    return psycopg2.connect(_DSN)
+
+
 def get_stock_prices(stock_id, limit=200):
     """Get historical prices for a stock"""
-    conn = psycopg2.connect(**DB_PARAMS)
+    conn = _connect()
     
     query = """
         SELECT date, open, high, low, close, volume
@@ -101,7 +111,7 @@ def calculate_all_indicators(stock_id, stock_symbol):
     df['bollinger_lower'] = lower
     
     # Store in database
-    conn = psycopg2.connect(**DB_PARAMS)
+    conn = _connect()
     cursor = conn.cursor()
     
     count = 0
@@ -148,7 +158,7 @@ def calculate_all_indicators(stock_id, stock_symbol):
 
 def process_all_watchlist_stocks(watchlist_name='Default'):
     """Calculate indicators for all stocks in watchlist"""
-    conn = psycopg2.connect(**DB_PARAMS)
+    conn = _connect()
     cursor = conn.cursor()
     
     cursor.execute("""
@@ -174,6 +184,43 @@ def process_all_watchlist_stocks(watchlist_name='Default'):
     
     print("\n" + "="*60)
     print("✓ Indicator calculation complete!")
+
+
+def recompute_queued_indicators():
+    """Drain recompute_queue: recompute indicators for each queued stock, then clear
+    exactly those rows. Items queued mid-run stay for the next pass. Returns a summary.
+    """
+    conn = _connect()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT q.stock_id, s.tradingsymbol
+        FROM recompute_queue q JOIN stocks s ON s.id = q.stock_id
+        ORDER BY q.queued_at
+    """)
+    queued = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    if not queued:
+        return {"queued": 0, "recomputed": 0}
+
+    done = []
+    for stock_id, symbol in queued:
+        try:
+            calculate_all_indicators(stock_id, symbol)
+            done.append(stock_id)
+        except Exception as e:  # noqa: BLE001
+            print(f"  ✗ {symbol}: {e}")
+
+    if done:
+        conn = _connect()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM recompute_queue WHERE stock_id = ANY(%s)", (done,))
+        conn.commit()
+        cur.close()
+        conn.close()
+    return {"queued": len(queued), "recomputed": len(done)}
+
 
 if __name__ == "__main__":
     print("\n" + "="*60)
