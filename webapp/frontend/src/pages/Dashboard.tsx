@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, fmt, Verdict, completenessClass } from "../api";
 import SignalBadge from "../components/SignalBadge";
 import LastUpdated from "../components/LastUpdated";
+import FearGreedWidget from "../components/FearGreedWidget";
 
 type Row = Record<string, any>;
 type Dir = "asc" | "desc";
@@ -14,13 +15,17 @@ interface Col {
   render?: (r: Row) => any;
   num?: boolean;            // numeric sort + right align
   cls?: (v: any, r: Row) => string;
+  width?: number;           // default width (px)
 }
 
 const cols: Col[] = [
-  { key: "symbol", label: "Symbol", render: (r) => (
+  { key: "symbol", label: "Symbol", width: 90, render: (r) => (
       <Link to={`/stock/${r.stock_id}`} className="font-medium text-indigo-300 hover:text-indigo-200">{r.symbol}</Link>
     ) },
-  { key: "verdict", label: "Signal", render: (r) => <SignalBadge verdict={r.verdict as Verdict} /> },
+  { key: "industry", label: "Industry", width: 150, render: (r) => (
+      <span className="text-slate-300 text-xs" title={r.sector || ""}>{r.industry || "—"}</span>
+    ) },
+  { key: "verdict", label: "Signal", width: 90, render: (r) => <SignalBadge verdict={r.verdict as Verdict} /> },
   { key: "close", label: "Price", num: true, render: (r) => fmt.rupee(r.close) },
   { key: "day_change_pct", label: "Day %", num: true, render: (r) => fmt.pct(r.day_change_pct, 2),
     cls: (v) => (v > 0 ? "text-buy" : v < 0 ? "text-sell" : "") },
@@ -54,7 +59,18 @@ const cols: Col[] = [
     cls: (v) => completenessClass(v) },
 ];
 
+const COL_MAP: Record<string, Col> = Object.fromEntries(cols.map((c) => [c.key, c]));
+const DEFAULT_ORDER = cols.map((c) => c.key);
 const FILTERS: (Verdict | "ALL")[] = ["ALL", "BUY", "SELL", "WATCH", "NEUTRAL"];
+
+// localStorage keys for column customization (Part 11)
+const LS_ORDER = "dash.colOrder";
+const LS_HIDDEN = "dash.colHidden";
+const LS_WIDTHS = "dash.colWidths";
+
+function loadLS<T>(key: string, fallback: T): T {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+}
 
 export default function Dashboard() {
   const [data, setData] = useState<{ stocks: Row[]; fii_dii: any } | null>(null);
@@ -65,15 +81,36 @@ export default function Dashboard() {
   const [q, setQ] = useState("");
   const [minScore, setMinScore] = useState("");
 
+  // ---- column customization state (persisted to localStorage) ----
+  const [order, setOrder] = useState<string[]>(() => {
+    const saved = loadLS<string[]>(LS_ORDER, DEFAULT_ORDER);
+    // keep only known keys + append any new columns added since last save
+    const known = saved.filter((k) => COL_MAP[k]);
+    return [...known, ...DEFAULT_ORDER.filter((k) => !known.includes(k))];
+  });
+  const [hidden, setHidden] = useState<string[]>(() => loadLS<string[]>(LS_HIDDEN, []));
+  const [widths, setWidths] = useState<Record<string, number>>(() => loadLS<Record<string, number>>(LS_WIDTHS, {}));
+  const [showCols, setShowCols] = useState(false);
+  const dragKey = useRef<string | null>(null);
+
+  useEffect(() => { localStorage.setItem(LS_ORDER, JSON.stringify(order)); }, [order]);
+  useEffect(() => { localStorage.setItem(LS_HIDDEN, JSON.stringify(hidden)); }, [hidden]);
+  useEffect(() => { localStorage.setItem(LS_WIDTHS, JSON.stringify(widths)); }, [widths]);
+
   useEffect(() => {
     api.dashboard().then(setData).catch((e) => setErr(String(e)));
   }, []);
+
+  const visibleCols = useMemo(
+    () => order.map((k) => COL_MAP[k]).filter((c) => c && !hidden.includes(c.key)),
+    [order, hidden]
+  );
 
   const rows = useMemo(() => {
     if (!data) return [];
     let r = data.stocks;
     if (verdict !== "ALL") r = r.filter((x) => x.verdict === verdict);
-    if (q) r = r.filter((x) => x.symbol.toLowerCase().includes(q.toLowerCase()) || (x.name || "").toLowerCase().includes(q.toLowerCase()));
+    if (q) r = r.filter((x) => x.symbol.toLowerCase().includes(q.toLowerCase()) || (x.name || "").toLowerCase().includes(q.toLowerCase()) || (x.industry || "").toLowerCase().includes(q.toLowerCase()));
     if (minScore) r = r.filter((x) => (x.composite_score ?? -1) >= Number(minScore));
     const sorted = [...r].sort((a, b) => {
       const av = a[sortKey], bv = b[sortKey];
@@ -95,12 +132,41 @@ export default function Dashboard() {
     else { setSortKey(k); setDir("desc"); }
   };
 
+  // ---- drag to reorder ----
+  const onDrop = (target: string) => {
+    const src = dragKey.current;
+    dragKey.current = null;
+    if (!src || src === target) return;
+    setOrder((o) => {
+      const next = o.filter((k) => k !== src);
+      const idx = next.indexOf(target);
+      next.splice(idx, 0, src);
+      return next;
+    });
+  };
+
+  // ---- resize ----
+  const startResize = (key: string, e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    const startX = e.clientX;
+    const startW = widths[key] ?? COL_MAP[key].width ?? 80;
+    const move = (ev: MouseEvent) => {
+      const w = Math.max(48, startW + ev.clientX - startX);
+      setWidths((prev) => ({ ...prev, [key]: w }));
+    };
+    const up = () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  };
+
+  const resetCols = () => { setOrder(DEFAULT_ORDER); setHidden([]); setWidths({}); };
+
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold text-slate-100">Signal Dashboard</h1>
-          <p className="text-sm text-slate-400">All available data per watchlist stock — sort any column, filter by signal/score.</p>
+          <p className="text-sm text-slate-400">All available data per watchlist stock — sort, filter, drag/resize/hide columns.</p>
         </div>
         <div className="flex items-center gap-4">
           {data.fii_dii && (
@@ -113,7 +179,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Filters */}
+      <FearGreedWidget />
+
+      {/* Filters + column controls */}
       <div className="flex flex-wrap items-center gap-2">
         {FILTERS.map((f) => (
           <button key={f} onClick={() => setVerdict(f)}
@@ -121,39 +189,79 @@ export default function Dashboard() {
             {f}{f !== "ALL" && counts[f] ? ` (${counts[f]})` : ""}
           </button>
         ))}
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search symbol…"
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search symbol/industry…"
           className="bg-ink border border-edge rounded-md px-3 py-1 text-xs outline-none focus:border-indigo-500" />
         <input value={minScore} onChange={(e) => setMinScore(e.target.value)} placeholder="Min score" type="number"
           className="w-24 bg-ink border border-edge rounded-md px-3 py-1 text-xs outline-none focus:border-indigo-500" />
         <span className="text-xs text-slate-500">{rows.length} stocks</span>
+        <div className="relative ml-auto">
+          <button onClick={() => setShowCols((s) => !s)}
+            className="px-3 py-1 rounded-md text-xs border border-edge text-slate-300 hover:text-slate-100">
+            ⚙ Columns
+          </button>
+          {showCols && (
+            <div className="absolute right-0 mt-1 z-30 card p-2 w-56 max-h-80 overflow-y-auto shadow-xl">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-slate-400">Show / hide columns</span>
+                <button onClick={resetCols} className="text-xs text-indigo-300 hover:text-indigo-200">Reset</button>
+              </div>
+              {DEFAULT_ORDER.map((k) => (
+                <label key={k} className="flex items-center gap-2 py-0.5 text-xs text-slate-300 cursor-pointer hover:text-slate-100">
+                  <input type="checkbox" checked={!hidden.includes(k)}
+                    onChange={() => setHidden((h) => h.includes(k) ? h.filter((x) => x !== k) : [...h, k])} />
+                  {COL_MAP[k].label}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="w-full text-sm" style={{ minWidth: 1400 }}>
+        <table className="text-sm" style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}>
           <thead>
             <tr>
-              {cols.map((c) => (
-                <th key={c.key} onClick={() => setSort(c.key)}
-                  className={`th cursor-pointer select-none hover:text-slate-200 ${c.num ? "text-right" : ""} ${sortKey === c.key ? "text-indigo-300" : ""}`}>
-                  {c.label}{sortKey === c.key ? (dir === "asc" ? " ▲" : " ▼") : ""}
-                </th>
-              ))}
+              {visibleCols.map((c) => {
+                const w = widths[c.key] ?? c.width ?? 80;
+                return (
+                  <th key={c.key}
+                    draggable
+                    onDragStart={() => { dragKey.current = c.key; }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => onDrop(c.key)}
+                    onClick={() => setSort(c.key)}
+                    style={{ width: w, minWidth: w, maxWidth: w }}
+                    className={`th relative cursor-pointer select-none hover:text-slate-200 ${c.num ? "text-right" : ""} ${sortKey === c.key ? "text-indigo-300" : ""}`}
+                    title="Click to sort · drag to reorder">
+                    <span className="truncate inline-block align-bottom" style={{ maxWidth: w - 14 }}>
+                      {c.label}{sortKey === c.key ? (dir === "asc" ? " ▲" : " ▼") : ""}
+                    </span>
+                    {/* resize handle */}
+                    <span onMouseDown={(e) => startResize(c.key, e)} onClick={(e) => e.stopPropagation()}
+                      className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-indigo-500/50" />
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.stock_id} className="hover:bg-edge/30">
-                {cols.map((c) => (
-                  <td key={c.key} className={`td ${c.num ? "text-right tabular-nums" : ""} ${c.cls ? c.cls(r[c.key], r) : ""}`}>
-                    {c.render ? c.render(r) : (r[c.key] ?? "—")}
-                  </td>
-                ))}
+                {visibleCols.map((c) => {
+                  const w = widths[c.key] ?? c.width ?? 80;
+                  return (
+                    <td key={c.key} style={{ width: w, minWidth: w, maxWidth: w }}
+                      className={`td truncate ${c.num ? "text-right tabular-nums" : ""} ${c.cls ? c.cls(r[c.key], r) : ""}`}>
+                      {c.render ? c.render(r) : (r[c.key] ?? "—")}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="text-[11px] text-slate-500">P/E %ile: percentile of current P/E vs the stock's own ~5yr history (green ≤25 cheap, red ≥75 expensive). Insider: buys/sells in last 30 days.</p>
+      <p className="text-[11px] text-slate-500">Drag column headers to reorder · drag the right edge to resize · ⚙ Columns to hide/show or reset. Layout is saved in your browser. P/E %ile: percentile of current P/E vs the stock's own ~5yr history.</p>
     </div>
   );
 }

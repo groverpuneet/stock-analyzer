@@ -42,3 +42,16 @@ def us_insider_trades(context) -> None:
 )
 def us_signals(context) -> None:
     context.log.info("us_signals: placeholder — no US signal logic wired yet")
+
+
+@asset(
+    group_name="us_daily",
+    description=(
+        "US Fear & Greed Index from CNN's free dataviz API, stored in macro_indicators "
+        "(indicator='us_fear_greed_index') with ~40 days of history for the chart."
+    ),
+)
+def us_fear_greed(context) -> None:
+    from data_collectors.fear_greed_collector import collect_us_fear_greed
+    r = collect_us_fear_greed()
+    context.log.info(f"US F&G: {r['score']} ({r['rating']})")

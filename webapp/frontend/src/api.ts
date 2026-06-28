@@ -60,8 +60,34 @@ export const api = {
   peHistory: (id: number) => get<any>(`/api/stocks/${id}/pe-history`),
   triggerAll: () => fetch("/api/refresh/trigger-all", { method: "POST" }).then((r) => r.json()),
   triggerFailed: () => fetch("/api/refresh/trigger-failed", { method: "POST" }).then((r) => r.json()),
+  triggerFull: () => fetch("/api/refresh/trigger-full", { method: "POST" }).then((r) => r.json()),
   qualityHealth: () => get<any>("/api/quality/health"),
+  fearGreed: () => get<FearGreed>("/api/macro/fear-greed"),
+  quarterlyResults: (id: number) => get<any>(`/api/stocks/${id}/quarterly-results`),
+  financials: (id: number) => get<any>(`/api/stocks/${id}/financials`),
+  concalls: (id: number) => get<any>(`/api/stocks/${id}/concalls`),
 };
+
+export interface FearGreedMarket {
+  score: number | null;
+  rating: string | null;
+  date: string | null;
+  history: { date: string; value: number }[];
+}
+export interface FearGreed {
+  india: FearGreedMarket;
+  us: FearGreedMarket;
+}
+
+// Fear & Greed score 0-100 -> color
+export function fgColor(v: number | null | undefined): string {
+  if (v == null) return "#64748b";
+  if (v < 25) return "#ef4444"; // extreme fear - red
+  if (v < 45) return "#f97316"; // fear - orange
+  if (v < 55) return "#eab308"; // neutral - yellow
+  if (v < 75) return "#84cc16"; // greed - lime
+  return "#22c55e"; // extreme greed - green
+}
 
 // completeness 0-100 -> tailwind text color (green >90, yellow 70-90, red <70)
 export function completenessClass(v: number | null | undefined): string {

@@ -42,7 +42,8 @@ def search(q: str = "", limit: int = 20):
 @router.get("/{stock_id}")
 def detail(stock_id: int):
     stock = query_one(
-        "SELECT id, tradingsymbol AS symbol, name, exchange, segment, instrument_type "
+        "SELECT id, tradingsymbol AS symbol, name, exchange, segment, instrument_type, "
+        "sector, industry "
         "FROM stocks WHERE id = %s",
         (stock_id,),
     )
@@ -126,3 +127,60 @@ def pe_history(stock_id: int):
         "max_5yr": round(max(vals_5y), 2),
         "percentile": round(100.0 * below / len(vals_5y), 1),
     }
+
+
+def _qoq_yoy(rows: list[dict], field: str) -> list[dict]:
+    """Attach QoQ (vs prev quarter) and YoY (vs 4 quarters ago) % change for `field`."""
+    out = []
+    for i, r in enumerate(rows):
+        cur = r.get(field)
+        cur = float(cur) if cur is not None else None
+        prev = rows[i - 1].get(field) if i >= 1 else None
+        yoy = rows[i - 4].get(field) if i >= 4 else None
+        def pct(base):
+            base = float(base) if base is not None else None
+            if cur is None or base in (None, 0):
+                return None
+            return round((cur - base) / abs(base) * 100, 1)
+        d = dict(r)
+        d[f"{field}_qoq"] = pct(prev)
+        d[f"{field}_yoy"] = pct(yoy)
+        out.append(d)
+    return out
+
+
+@router.get("/{stock_id}/quarterly-results")
+def quarterly_results(stock_id: int, limit: int = 12):
+    """Last N quarters of revenue/PAT/EPS with QoQ and YoY % growth (oldest→newest)."""
+    rows = query_all(
+        "SELECT quarter, period_end, revenue, pat, eps FROM quarterly_financials "
+        "WHERE stock_id = %s ORDER BY period_end DESC LIMIT %s",
+        (stock_id, limit),
+    )
+    rows = list(reversed(rows))  # chronological for growth calc + charts
+    for field in ("revenue", "pat", "eps"):
+        rows = _qoq_yoy(rows, field)
+    return {"quarters": rows}
+
+
+@router.get("/{stock_id}/financials")
+def financials(stock_id: int, limit: int = 12):
+    """P&L + balance-sheet + cash-flow series for the financials tab charts."""
+    rows = query_all(
+        "SELECT quarter, period_end, revenue, ebitda, pat, eps, debt, cash, ocf, capex "
+        "FROM quarterly_financials WHERE stock_id = %s ORDER BY period_end DESC LIMIT %s",
+        (stock_id, limit),
+    )
+    return {"financials": list(reversed(rows))}
+
+
+@router.get("/{stock_id}/concalls")
+def concalls(stock_id: int, limit: int = 12):
+    """Earnings call transcripts: summary, sentiment, themes, source link."""
+    rows = query_all(
+        "SELECT quarter, transcript_url, summary, sentiment_score, key_themes, "
+        "source, published_at FROM concall_transcripts "
+        "WHERE stock_id = %s ORDER BY published_at DESC NULLS LAST, id DESC LIMIT %s",
+        (stock_id, limit),
+    )
+    return {"concalls": rows}

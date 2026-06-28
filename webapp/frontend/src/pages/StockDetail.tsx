@@ -8,14 +8,20 @@ import SignalBadge from "../components/SignalBadge";
 import { Loading, Error } from "./Dashboard";
 import LastUpdated from "../components/LastUpdated";
 import PeHistoryChart from "../components/PeHistoryChart";
+import { QuarterlyResults, Financials, Concalls } from "../components/StockTabs";
+
+const TABS = ["Overview", "Quarterly Results", "Financials", "Concalls"] as const;
+type Tab = (typeof TABS)[number];
 
 export default function StockDetail() {
   const { id } = useParams();
   const [d, setD] = useState<any>(null);
   const [err, setErr] = useState<string>();
+  const [tab, setTab] = useState<Tab>("Overview");
 
   useEffect(() => {
     setD(null);
+    setTab("Overview");
     api.stock(Number(id)).then(setD).catch((e) => setErr(String(e)));
   }, [id]);
 
@@ -49,6 +55,11 @@ export default function StockDetail() {
             <span className="text-xs text-slate-500">{stock.exchange}</span>
           </div>
           <p className="text-sm text-slate-400">{stock.name}</p>
+          {(stock.sector || stock.industry) && (
+            <p className="text-xs text-slate-500">
+              {stock.sector}{stock.sector && stock.industry ? " · " : ""}{stock.industry}
+            </p>
+          )}
           <div className="mt-1"><LastUpdated page="stock" /></div>
         </div>
         {signal && (
@@ -61,6 +72,21 @@ export default function StockDetail() {
         )}
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-edge">
+        {TABS.map((t) => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`px-3 py-2 text-sm -mb-px border-b-2 ${tab === t ? "border-indigo-400 text-slate-100" : "border-transparent text-slate-400 hover:text-slate-200"}`}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {tab === "Quarterly Results" && <QuarterlyResults stockId={Number(id)} />}
+      {tab === "Financials" && <Financials stockId={Number(id)} />}
+      {tab === "Concalls" && <Concalls stockId={Number(id)} />}
+
+      {tab === "Overview" && <>
       {/* Price + moving averages */}
       <Panel title="Price & moving averages (last ~250 sessions)">
         <ResponsiveContainer width="100%" height={260}>
@@ -208,6 +234,7 @@ export default function StockDetail() {
           )}
         </Panel>
       </div>
+      </>}
     </div>
   );
 }
