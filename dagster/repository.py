@@ -293,10 +293,19 @@ def nse_model_refresh(context) -> None:
 
 @asset(
     group_name="us_daily",
-    description="[PLACEHOLDER] US stock OHLCV prices. Wire to yfinance/Alpaca when ready.",
+    description=(
+        "US daily OHLCV for the seeded US universe via Polygon.io Aggregates API "
+        "(free tier: 5 calls/min, EOD, ~2yr history). Stored in daily_prices "
+        "(market via stocks join). Incremental daily run pulls the last 7 days; "
+        "the full 2yr backfill is a one-time manual collect_us_prices() call."
+    ),
 )
 def us_raw_prices(context) -> None:
-    context.log.info("us_raw_prices: placeholder — no US data source wired yet")
+    from data_collectors.polygon_prices_collector import collect_us_prices
+    result = collect_us_prices(lookback_days=7)
+    context.log.info(
+        f"US prices: {result['rows_upserted']} bars across {result['stocks_with_data']} stocks"
+    )
 
 
 @asset(

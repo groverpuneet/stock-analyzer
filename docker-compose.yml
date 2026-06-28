@@ -43,6 +43,7 @@ x-stock-env: &stock-env
   KITE_USERNAME: "${KITE_USERNAME}"
   KITE_PASSWORD: "${KITE_PASSWORD}"
   KITE_TOTP_SECRET: "${KITE_TOTP_SECRET}"
+  POLYGON_API_KEY: "${POLYGON_API_KEY}"
 
 services:
 
@@ -95,7 +96,7 @@ services:
     image: stock-analyzer-dagster:latest
     restart: on-failure
     environment:
-      <<: *dagster-env
+      <<: [*dagster-env, *stock-env]
     volumes:
       - .:/opt/dagster/app
       - dagster-home:/opt/dagster/dagster_home
@@ -121,7 +122,7 @@ services:
     image: stock-analyzer-dagster:latest
     restart: on-failure
     environment:
-      <<: *dagster-env
+      <<: [*dagster-env, *stock-env]
     volumes:
       - .:/opt/dagster/app
       - dagster-home:/opt/dagster/dagster_home

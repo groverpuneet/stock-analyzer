@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, fmt } from "../api";
 import { Loading, Error } from "./Dashboard";
+import LastUpdated from "../components/LastUpdated";
 
 export default function Opportunities() {
   const [d, setD] = useState<any>(null);

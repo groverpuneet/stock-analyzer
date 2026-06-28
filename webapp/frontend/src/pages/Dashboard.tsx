@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, fmt, SignalsResponse, Verdict } from "../api";
 import SignalBadge from "../components/SignalBadge";
+import LastUpdated from "../components/LastUpdated";
 
 const FILTERS: (Verdict | "ALL")[] = ["ALL", "BUY", "SELL", "WATCH", "NEUTRAL"];
 
@@ -21,11 +22,14 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-100">Signal Dashboard</h1>
-        <p className="text-sm text-slate-400">
-          BUY / SELL / WATCH across the watchlist, derived live from the latest technical indicators.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-100">Signal Dashboard</h1>
+          <p className="text-sm text-slate-400">
+            BUY / SELL / WATCH across the watchlist, derived live from the latest technical indicators.
+          </p>
+        </div>
+        <LastUpdated page="dashboard" />
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
