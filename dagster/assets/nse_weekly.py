@@ -133,7 +133,44 @@ def nse_quarterly_financials(context) -> None:
 
 @asset(
     group_name="nse_weekly",
-    deps=[nse_fundamentals, nse_shareholding_pattern],
+    description=(
+        "Analyst consensus ratings and price targets from Tickertape.in (fallback: Screener). "
+        "Stores buy/hold/sell counts, average target price, and computed upside percentage."
+    ),
+)
+def nse_analyst_targets(context) -> None:
+    from data_collectors.analyst_targets_collector import collect_analyst_targets
+    collect_analyst_targets()
+
+
+@asset(
+    group_name="nse_weekly",
+    deps=[nse_fundamentals],
+    description=(
+        "Promoter pledging alerts computed from fundamentals.pledged_pct history. "
+        "Flags: rising >2% = red flag, falling >2% = positive, >50% = critical."
+    ),
+)
+def nse_pledging_alerts(context) -> None:
+    from data_collectors.pledging_alerts_collector import collect_pledging_alerts
+    collect_pledging_alerts()
+
+
+@asset(
+    group_name="nse_weekly",
+    description=(
+        "SAST (Substantial Acquisition of Shares and Takeovers) disclosures from NSE. "
+        "Tracks large acquisitions by promoters, FIIs, DIIs, and others."
+    ),
+)
+def nse_sast_disclosures(context) -> None:
+    from data_collectors.sast_collector import collect_sast_disclosures
+    collect_sast_disclosures(days=30)
+
+
+@asset(
+    group_name="nse_weekly",
+    deps=[nse_fundamentals, nse_shareholding_pattern, nse_pledging_alerts],
     description=(
         "Post-run audit: after the weekly pipeline, detect fundamentals/shareholding coverage "
         "gaps into data_quality_log, update per-stock data_completeness_score, and note any "
