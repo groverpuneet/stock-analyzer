@@ -23,7 +23,7 @@ import psycopg2  # noqa: E402
 from dagster import sensor, RunRequest, SkipReason, DefaultSensorStatus  # noqa: E402
 
 from jobs import (  # noqa: E402
-    nse_daily_job, nse_weekly_job, nse_news_job, nse_indicator_recompute_job,
+    nse_daily_job, nse_weekly_job, nse_news_job, nse_indicator_recompute_job, nse_gap_fill_job,
 )
 
 DB_URL = os.environ.get("DATABASE_URL", "postgresql://puneetgrover@localhost/stock_analyzer")
@@ -144,4 +144,43 @@ def indicator_recompute_sensor(context):
                                              "queued": str(len(ids))})
 
 
-ALL_SENSORS = [watchlist_change_sensor, indicator_recompute_sensor]
+@sensor(
+    name="data_quality_sensor",
+    minimum_interval_seconds=1800,   # 30 min
+    job=nse_gap_fill_job,
+    default_status=DefaultSensorStatus.RUNNING,
+    description=(
+        "Every 30 min: if data_quality_log has unresolved gaps older than 1h, trigger "
+        "nse_gap_fill_job to re-run only the affected stocks/sources (never a full job). "
+        "Auto-retry with gap fill — the heart of the data-quality framework."
+    ),
+)
+def data_quality_sensor(context):
+    import os as _os
+    db = _os.environ.get("DATABASE_URL", DB_URL)
+    try:
+        conn = psycopg2.connect(db)
+    except Exception as e:  # noqa: BLE001
+        return SkipReason(f"DB unreachable: {e}")
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT COUNT(*), COALESCE(MAX(id),0) FROM data_quality_log "
+            "WHERE resolved_at IS NULL AND detected_at < now() - interval '1 hour'")
+        count, max_id = cur.fetchone()
+        cur.close()
+        conn.close()
+    except Exception as e:  # noqa: BLE001
+        conn.close()
+        return SkipReason(f"data_quality_sensor error: {e}")
+
+    if not count:
+        return SkipReason("No unresolved gaps older than 1h.")
+    # run_key tied to the current open-gap frontier — a still-running fill won't re-trigger.
+    run_key = f"gapfill-{count}-{max_id}"
+    context.log.info(f"{count} unresolved gap(s) >1h — triggering targeted gap fill.")
+    return RunRequest(run_key=run_key, tags={"trigger": "data_quality_sensor",
+                                             "open_gaps": str(count)})
+
+
+ALL_SENSORS = [watchlist_change_sensor, indicator_recompute_sensor, data_quality_sensor]

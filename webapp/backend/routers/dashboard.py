@@ -74,7 +74,7 @@ def dashboard(watchlist: str = "Default"):
     scores = {r["stock_id"]: r for r in query_all(
         """
         SELECT DISTINCT ON (stock_id) stock_id, composite_score, rsi_rank,
-               momentum_score, volume_rank, macd_rank, pe_percentile
+               momentum_score, volume_rank, macd_rank, pe_percentile, data_completeness_score
         FROM stock_scores WHERE stock_id = ANY(%s) ORDER BY stock_id, date DESC
         """, (ids,))}
 
@@ -131,6 +131,7 @@ def dashboard(watchlist: str = "Default"):
             "composite_score": _f(sc.get("composite_score")), "rsi_rank": _f(sc.get("rsi_rank")),
             "momentum_score": _f(sc.get("momentum_score")), "volume_rank": _f(sc.get("volume_rank")),
             "macd_rank": _f(sc.get("macd_rank")),
+            "completeness": _f(sc.get("data_completeness_score")),
             # insider
             "insider_buys": buys, "insider_sells": sells, "insider_net": buys - sells,
         })

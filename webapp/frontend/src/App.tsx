@@ -7,6 +7,7 @@ import Opportunities from "./pages/Opportunities";
 import DataSources from "./pages/DataSources";
 import RefreshStatus from "./pages/RefreshStatus";
 import ChatWidget from "./components/ChatWidget";
+import DataHealth from "./components/DataHealth";
 
 const nav = [
   { to: "/", label: "Signals", end: true },
@@ -27,7 +28,7 @@ export default function App() {
       <header className="sticky top-0 z-40 bg-ink/90 backdrop-blur border-b border-edge">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-4">
           <div className="font-bold text-slate-100 whitespace-nowrap">📈 Stock Analyzer</div>
-          <nav className="flex gap-1 overflow-x-auto">
+          <nav className="flex gap-1 overflow-x-auto flex-1">
             {nav.map((n) => (
               <NavLink
                 key={n.to}
@@ -43,6 +44,7 @@ export default function App() {
               </NavLink>
             ))}
           </nav>
+          <DataHealth />
         </div>
       </header>
 

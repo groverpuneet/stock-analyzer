@@ -10,6 +10,12 @@ def get_conn():
 
 @contextmanager
 def refresh_log(source):
+    """Context manager wrapping a collector run. Collectors set:
+        meta['rows']      — actual rows written (required)
+        meta['expected']  — expected rows (optional; enables coverage_pct + 'partial')
+        meta['gaps']      — list of failed stock_ids/dates (optional)
+    On exit it records actual/expected/coverage and status (success | partial)."""
+    import json as _json
     meta = {"rows": 0}
     log.info(f"[{source}] Starting")
     conn = get_conn(); cur = conn.cursor()
@@ -17,10 +23,19 @@ def refresh_log(source):
     conn.commit(); cur.close(); conn.close()
     try:
         yield meta
+        actual = meta.get("rows", 0)
+        expected = meta.get("expected")
+        gaps = meta.get("gaps")
+        coverage = round(100.0 * actual / expected, 1) if expected else None
+        status = "partial" if (expected and actual < expected) else "success"
         conn = get_conn(); cur = conn.cursor()
-        cur.execute("UPDATE data_refresh_log SET status='success', completed_at=%s, rows_upserted=%s WHERE source=%s", (datetime.now(), meta.get("rows",0), source))
+        cur.execute(
+            "UPDATE data_refresh_log SET status=%s, completed_at=%s, rows_upserted=%s, "
+            "actual_rows=%s, expected_rows=%s, coverage_pct=%s, gaps_detected=%s WHERE source=%s",
+            (status, datetime.now(), actual, actual, expected, coverage,
+             _json.dumps(gaps) if gaps else None, source))
         conn.commit(); cur.close(); conn.close()
-        log.info(f"[{source}] Done")
+        log.info(f"[{source}] Done ({status}, {actual}/{expected if expected else '?'} rows)")
     except Exception as e:
         log.error(f"[{source}] Failed: {e}", exc_info=True)
         conn = get_conn(); cur = conn.cursor()

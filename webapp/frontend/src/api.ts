@@ -60,7 +60,16 @@ export const api = {
   peHistory: (id: number) => get<any>(`/api/stocks/${id}/pe-history`),
   triggerAll: () => fetch("/api/refresh/trigger-all", { method: "POST" }).then((r) => r.json()),
   triggerFailed: () => fetch("/api/refresh/trigger-failed", { method: "POST" }).then((r) => r.json()),
+  qualityHealth: () => get<any>("/api/quality/health"),
 };
+
+// completeness 0-100 -> tailwind text color (green >90, yellow 70-90, red <70)
+export function completenessClass(v: number | null | undefined): string {
+  if (v == null) return "text-slate-500";
+  if (v >= 90) return "text-buy";
+  if (v >= 70) return "text-watch";
+  return "text-sell";
+}
 
 // "2026-06-28T04:03:50" -> "2h ago" / "3d ago"
 export function relTime(iso: string | null): string {
