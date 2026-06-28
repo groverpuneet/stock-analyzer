@@ -32,3 +32,4 @@ nsepython
 dagster
 dagster-webserver
 dagster-postgres
+fastmcp
