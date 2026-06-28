@@ -98,7 +98,13 @@ def nse_corporate_actions(context) -> None:
 
 @asset(
     group_name="nse_daily",
-    description="Market news headlines scored by FinBERT (local). Proactive: covers full NSE universe.",
+    description=(
+        "Market news headlines scored by FinBERT (local). Proactive, multi-market: "
+        "Indian feeds (ET, Moneycontrol, NDTV, Google News IN) + US feeds (Google News US, "
+        "CNBC, MarketWatch, Yahoo Finance, Seeking Alpha). Matches against the full NSE + US "
+        "stock universe; bare tickers that are common words (COST) or ≤2 chars (V, MA) are not "
+        "matched to avoid false positives. Stored in news_sentiment (source='news_sentiment')."
+    ),
 )
 def nse_news_sentiment(context) -> None:
     from data_collectors.news_collector import collect_news

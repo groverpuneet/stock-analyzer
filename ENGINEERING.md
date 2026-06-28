@@ -609,6 +609,19 @@ When using LLM APIs (Claude, etc.) in this project, optimize for minimum token u
   (M exercise, F tax, A grant, G gift, X, C…); person_category from isDirector/isOfficer(+title)/
   isTenPercentOwner; price NULL for grants/exercises. Upsert on (stock_id,date,person_name,transaction,quantity).
 
+### US news sentiment (DONE — folded into the existing pipeline)
+- The proactive news pipeline (`data_collectors/news_collector.py`, asset `nse_news_sentiment`) is
+  one unified multi-market collector. US support = added feeds + universe matching; no new asset/table.
+- US feeds added to MARKET_FEEDS: Google News US, CNBC, MarketWatch, Yahoo Finance, Seeking Alpha.
+- `build_stock_universe()` already loads ALL stocks, so the seeded US universe is matchable. Expanded
+  `ABBREVIATION_MAP` with the 30 US names (Apple, BofA, Nvidia, Nike, …).
+- **Precision guards (important for US tickers):** flashtext is case-insensitive, so bare US tickers
+  that are common English words (e.g. COST→"cost") or ≤2 chars (V, MA, KO, HD) generated false
+  positives. We now skip adding the bare ticker as a keyword when `len(symbol) <= 2` or symbol is in
+  `COMMON_WORD_TICKERS`; those stocks still match via company name/abbreviation. A `_GENERIC_FIRST_WORDS`
+  set also stops the "first word of name" heuristic from adding generic keywords ("Bank of America"→"Bank").
+- US headlines land on their RSS published date in news_sentiment (so query a date window, not just today).
+
 ## TODO: MF Portfolio Holdings
 - AMFI portfolio holdings page is JS-rendered (Next.js) — not scrapable with requests
 - Each AMC publishes monthly holdings on their own website by 10th of month

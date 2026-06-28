@@ -57,11 +57,12 @@ US_UNIVERSE = [
 _TOKEN_BASE = 9_000_000_000
 
 # New data_refresh_log sources for Tier 3 collectors.
+# Note: US news has no separate source — the unified news_collector.collect_news()
+# fetches NSE + US feeds together and logs under the existing 'news_sentiment' source.
 US_SOURCES = [
     ("us_prices",      "daily"),
     ("fred_macro",     "weekly"),
     ("sec_form4",      "daily"),
-    ("us_news",        "daily"),
 ]
 
 
