@@ -152,11 +152,16 @@
   - Table: insider_trades, source='sec_form4' — 377 rows, 27 stocks (30-day backfill)
   - Dagster asset: us_insider_trades (us_daily group)
 
-- [ ] US news sentiment
-  - Source: Same RSS pipeline + FinBERT (already multi-market ready)
-  - Add US feeds to MARKET_FEEDS in news_collector.py
-  - No new table needed — existing news_sentiment handles it
-  - Dagster asset: extend existing news_sentiment asset
+- [x] US news sentiment
+  - Source: Same RSS pipeline + FinBERT. Added US feeds: Google News US, CNBC,
+    MarketWatch, Yahoo Finance, Seeking Alpha (cnbc occasionally empty — harmless)
+  - Universe now matches seeded US stocks; expanded ABBREVIATION_MAP for 30 US names
+  - Precision fixes: bare tickers that are common words (COST denylist) or ≤2 chars
+    (V, MA, KO, HD) are NOT added as keywords — they matched "cost"/"v"/"ma" etc.
+    Generic first-words guard (Bank, The, United...) so "Bank of America"→"Bank" can't
+    tag every banking story. All still match via company name/abbrev.
+  - No new table; folded into existing collect_news() → nse_news_sentiment asset,
+    source stays 'news_sentiment'. Verified clean US matches (AAPL, BAC, NVDA, NKE)
 
 - [ ] Congress trades — US politicians stock trades (high signal)
   - Source: Quiver Quant API (free tier available)

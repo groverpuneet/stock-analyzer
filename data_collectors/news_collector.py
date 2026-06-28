@@ -54,8 +54,12 @@ MARKET_FEEDS = [
     ("https://www.business-standard.com/rss/markets-106.rss",                   "business_standard"),
     ("https://feeds.feedburner.com/ndtvprofit-latest",                           "ndtv_profit"),
     ("https://news.google.com/rss/search?q=NSE+BSE+stock+market+India&hl=en-IN&gl=IN&ceid=IN:en", "google_news_india"),
-    # US markets (ready for when we integrate)
+    # US markets
     ("https://news.google.com/rss/search?q=NYSE+NASDAQ+stock+market&hl=en&gl=US&ceid=US:en", "google_news_us"),
+    ("https://www.cnbc.com/id/15839135/device/rss/rss.html",                     "cnbc"),
+    ("http://feeds.marketwatch.com/marketwatch/topstories/",                     "marketwatch"),
+    ("https://finance.yahoo.com/news/rssindex",                                  "yahoo_finance"),
+    ("https://seekingalpha.com/market_currents.xml",                             "seeking_alpha"),
 ]
 
 # ── FinBERT singleton ──────────────────────────────────────────────────────────
@@ -152,8 +156,12 @@ def build_stock_universe() -> tuple:
         # Add full company name
         kp.add_keyword(name, tag)
 
-        # Add NSE symbol itself (e.g. "RELIANCE", "WIPRO")
-        kp.add_keyword(symbol, tag)
+        # Add the ticker symbol itself (e.g. "RELIANCE", "WIPRO"), but NOT when it is
+        # a common English word or a 1-2 char ticker — flashtext is case-insensitive,
+        # so bare US tickers like COST/V/MA/KO/HD would match "cost", "v", "ma" etc.
+        # Those stocks still match via their company name and abbreviations.
+        if len(symbol) > 2 and symbol.upper() not in COMMON_WORD_TICKERS:
+            kp.add_keyword(symbol, tag)
 
         # Add common abbreviations and short forms
         abbrevs = _get_abbreviations(symbol, name)
@@ -178,7 +186,7 @@ ABBREVIATION_MAP = {
     "WIPRO":      ["Wipro Technologies"],
     "ITC":        ["ITC Ltd", "Indian Tobacco"],
     "KOTAKBANK":  ["Kotak Bank", "Kotak Mahindra"],
-    # US stocks (ready for expansion)
+    # US stocks
     "AAPL":   ["Apple Inc", "Apple Computer"],
     "GOOGL":  ["Google", "Alphabet"],
     "MSFT":   ["Microsoft Corp", "Microsoft"],
@@ -186,14 +194,53 @@ ABBREVIATION_MAP = {
     "NVDA":   ["Nvidia Corp", "Nvidia"],
     "TSLA":   ["Tesla Inc", "Tesla Motors"],
     "META":   ["Meta Platforms", "Facebook"],
+    "AVGO":   ["Broadcom"],
+    "AMD":    ["Advanced Micro Devices", "AMD"],
+    "NFLX":   ["Netflix"],
+    "ORCL":   ["Oracle"],
+    "CRM":    ["Salesforce"],
+    "ADBE":   ["Adobe"],
+    "INTC":   ["Intel"],
+    "CSCO":   ["Cisco"],
+    "JPM":    ["JPMorgan", "JP Morgan", "JPMorgan Chase"],
+    "BAC":    ["Bank of America", "BofA"],
+    "V":      ["Visa Inc"],
+    "MA":     ["Mastercard"],
+    "WMT":    ["Walmart"],
+    "HD":     ["Home Depot"],
+    "COST":   ["Costco"],
+    "PG":     ["Procter & Gamble", "Procter and Gamble"],
+    "KO":     ["Coca-Cola", "Coca Cola"],
+    "PEP":    ["PepsiCo", "Pepsi"],
+    "JNJ":    ["Johnson & Johnson", "J&J"],
+    "UNH":    ["UnitedHealth", "United Health"],
+    "XOM":    ["Exxon", "Exxon Mobil", "ExxonMobil"],
+    "DIS":    ["Walt Disney", "Disney"],
+    "NKE":    ["Nike"],
+}
+
+# Ticker symbols that are also common English words — their bare symbol must NOT be
+# a keyword (flashtext is case-insensitive). They still match via company name/abbrev.
+COMMON_WORD_TICKERS = {
+    "COST", "ALL", "ARE", "NOW", "ON", "IT", "SO", "BY", "OR", "CEO", "KEY",
+    "WELL", "LOVE", "CARS", "PLAY", "OPEN", "TRUE", "FUN", "HE", "REAL",
+}
+
+# Generic first words that must NOT become standalone keywords — they would tag
+# unrelated headlines (e.g. "Bank of America" -> "Bank" matching every banking story).
+# The stock still matches via its full name and ticker symbol.
+_GENERIC_FIRST_WORDS = {
+    "bank", "the", "national", "india", "indian", "united", "general",
+    "first", "new", "global", "american", "advanced", "johnson",
 }
 
 def _get_abbreviations(symbol: str, name: str) -> list:
     """Return known abbreviations for a stock."""
     abbrevs = ABBREVIATION_MAP.get(symbol, [])
-    # Also try first word of company name as abbreviation
+    # Also try first word of company name as abbreviation, unless it's a generic
+    # word that would generate false positives across unrelated headlines.
     first_word = name.split()[0] if name else ''
-    if len(first_word) > 3 and first_word not in abbrevs:
+    if len(first_word) > 3 and first_word not in abbrevs and first_word.lower() not in _GENERIC_FIRST_WORDS:
         abbrevs.append(first_word)
     return abbrevs
 
