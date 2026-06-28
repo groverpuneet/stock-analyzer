@@ -51,5 +51,5 @@ export default function RawData() {
 
   const config = TABLE_CONFIG[slug];
 
-  return <DataTable table={config.table} title={config.title} />;
+  return <DataTable key={slug} table={config.table} title={config.title} />;
 }

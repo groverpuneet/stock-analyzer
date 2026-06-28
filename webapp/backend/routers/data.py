@@ -105,10 +105,10 @@ TABLE_META = {
         "order_default": "date DESC",
     },
     "institutional_holdings_13f": {
-        "stock_col": "stock_id",
-        "date_col": "period_end",
+        "stock_col": None,
+        "date_col": "filing_date",
         "refresh_source": "sec_13f",
-        "order_default": "period_end DESC",
+        "order_default": "filing_date DESC",
     },
     "macro_indicators": {
         "stock_col": None,

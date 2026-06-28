@@ -145,9 +145,13 @@ export default function DataTable({ table, title, columns: propColumns, defaultS
       if (search) params.append("search", search);
       if (stockFilter) params.append("filter_stock", stockFilter.toString());
 
-      const res = await fetch(`/api/data/${table}?${params}`);
+      const url = `/api/data/${table}?${params}`;
+      console.log("[DataTable] Fetching:", url);
+      const res = await fetch(url);
+      console.log("[DataTable] Response status:", res.status);
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const json = await res.json();
+      console.log("[DataTable] Data received:", json.total_count, "rows");
 
       setData(json.data);
       setTotalCount(json.total_count);
@@ -155,6 +159,7 @@ export default function DataTable({ table, title, columns: propColumns, defaultS
       setLastUpdated(json.last_updated);
       setDbColumns(json.columns);
     } catch (e: any) {
+      console.error("[DataTable] Error:", e);
       setError(e.message);
     } finally {
       setLoading(false);
@@ -214,10 +219,13 @@ export default function DataTable({ table, title, columns: propColumns, defaultS
 
   const visibleColumns = columns.filter((c) => !hiddenCols.has(c.key));
 
+  // Debug logging
+  console.log("[DataTable] table:", table, "columns:", columns.length, "visible:", visibleColumns.length, "data:", data.length);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 h-full flex flex-col">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 shrink-0">
         <div>
           <h1 className="text-xl font-semibold text-slate-100">{title}</h1>
           <div className="text-sm text-slate-400">
@@ -279,7 +287,7 @@ export default function DataTable({ table, title, columns: propColumns, defaultS
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto border border-edge rounded">
+      <div className="overflow-auto border border-edge rounded flex-1 min-h-0">
         <table className="w-full text-sm">
           <thead className="bg-edge text-slate-300 sticky top-0">
             <tr>
@@ -339,7 +347,7 @@ export default function DataTable({ table, title, columns: propColumns, defaultS
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between text-sm text-slate-400">
+      <div className="flex items-center justify-between text-sm text-slate-400 shrink-0">
         <div>
           Showing {((page - 1) * perPage) + 1}–{Math.min(page * perPage, totalCount)} of {formatNumber(totalCount, 0)}
         </div>
