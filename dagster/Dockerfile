@@ -1,4 +1,7 @@
-# dagster/Dockerfile — Python 3.9 image with all stock-analyzer + Dagster deps
+# dagster/Dockerfile — Python 3.10 image with all stock-analyzer + Dagster deps
+#
+# Python 3.10 (not 3.9) is REQUIRED: fastmcp (MoSPI MCP integration) needs 3.10+.
+# This matches the local venv310 used to run the macro collectors.
 #
 # NOTE: First build takes ~15-20 min on M1 Mac due to PyTorch (~2.5GB).
 # After that, layer cache makes rebuilds fast (deps change rarely).
@@ -6,7 +9,7 @@
 # Used by docker-compose services: user-code, dagster-webserver, dagster-daemon
 # The same image runs with different CMD overrides per service.
 
-FROM python:3.9-slim
+FROM python:3.10-slim
 
 # System deps: lxml needs libxml2/libxslt; Playwright needs various libs
 RUN apt-get update && apt-get install -y --no-install-recommends \

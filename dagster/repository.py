@@ -201,16 +201,22 @@ def nse_fundamentals(context) -> None:
     description=(
         "India macro indicators in macro_indicators. "
         "RBI DBIE homepage: repo rate, CPI, WACR, USD/INR. "
-        "MoSPI MCP (mcp.mospi.gov.in): GDP (level + YoY growth) and WPI (index + YoY inflation)."
+        "MoSPI MCP (mcp.mospi.gov.in): GDP (level + YoY growth) and WPI (index + YoY inflation). "
+        "RBI DBIE via Playwright: forex reserves (weekly) + bank credit/deposit YoY growth (fortnightly)."
     ),
 )
 def nse_macro_indicators(context) -> None:
     from data_collectors.rbi_macro_collector import collect_rbi_macro
     from data_collectors.mospi_macro_collector import collect_mospi_macro
+    from data_collectors.rbi_dbie_collector import collect_rbi_dbie
     collect_rbi_macro()
     mospi = collect_mospi_macro()
     context.log.info(
         f"MoSPI macro: {mospi['rows_upserted']} rows across {mospi['indicators']}"
+    )
+    dbie = collect_rbi_dbie()
+    context.log.info(
+        f"RBI DBIE: {dbie['rows_upserted']} rows across {dbie['indicators']}"
     )
 
 

@@ -73,11 +73,19 @@
 
 ## Tier 2 — Macro completeness
 
-- [ ] RBI credit growth + forex reserves
-  - Source: RBI DBIE (blocked by Mac LibreSSL — fix SSL first)
-  - Table: existing macro_indicators
-  - Blocker: SSL handshake failure on Mac LibreSSL 2.8.3
-  - Fix: pip install pyOpenSSL and monkey-patch requests SSL context
+- [x] RBI credit growth + forex reserves
+  - Source: RBI DBIE (data.rbi.org.in) via Playwright (ignore_https_errors=True — bypasses Mac LibreSSL)
+  - Collector: data_collectors/rbi_dbie_collector.py
+  - Auth crack: SPA mints a session token in sessionStorage['sessionId']; replay gateway calls
+    with it as the 'authorization' header (+ channelkey: key2) for clean JSON / XLSX
+  - Forex: dbie_foreignExchangeReserves gateway service — total + FCA/gold/SDR/IMF, weekly, USD billion
+    (latest $672.6B; 12-week trend stored for total)
+  - Credit: official "Macro-economic Indicators" XLSX (Fortnightly sheet) — bank credit, non-food credit,
+    aggregate deposits outstanding (₹ crore) -> computed YoY growth
+    (bank credit +17.65%, non-food +17.81%, deposits +12.21% as of 31-May-26; merger-inflated base)
+  - Table: macro_indicators — 20 rows, source='rbi_dbie'
+  - Dagster asset: nse_macro_indicators (nse_weekly group) now also calls collect_rbi_dbie()
+  - Runs on venv310 (Playwright + openpyxl)
 
 - [x] GDP + WPI inflation
   - Source: MoSPI MCP server (mcp.mospi.gov.in) via fastmcp — datasets NAS (GDP) + WPI
