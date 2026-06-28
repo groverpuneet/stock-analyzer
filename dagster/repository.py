@@ -198,11 +198,20 @@ def nse_fundamentals(context) -> None:
 
 @asset(
     group_name="nse_weekly",
-    description="RBI macro indicators: repo rate, CPI, WACR, USD/INR from DBIE homepage.",
+    description=(
+        "India macro indicators in macro_indicators. "
+        "RBI DBIE homepage: repo rate, CPI, WACR, USD/INR. "
+        "MoSPI MCP (mcp.mospi.gov.in): GDP (level + YoY growth) and WPI (index + YoY inflation)."
+    ),
 )
 def nse_macro_indicators(context) -> None:
     from data_collectors.rbi_macro_collector import collect_rbi_macro
+    from data_collectors.mospi_macro_collector import collect_mospi_macro
     collect_rbi_macro()
+    mospi = collect_mospi_macro()
+    context.log.info(
+        f"MoSPI macro: {mospi['rows_upserted']} rows across {mospi['indicators']}"
+    )
 
 
 @asset(
