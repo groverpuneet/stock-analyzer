@@ -135,7 +135,23 @@ def nse_block_deals(context) -> None:
 
 @asset(
     group_name="nse_daily",
-    deps=[nse_technical_indicators, nse_fii_dii_flows, nse_corporate_actions, nse_news_sentiment, nse_fno_data, nse_block_deals],
+    description=(
+        "BSE bulk + block deals via NSE archive CSV (bulk.csv, block.csv) and NSE snapshot API. "
+        "BSE direct API (api.bseindia.com) returns HTML for all endpoints — JS-challenge blocked. "
+        "Covers dual-listed stocks (NSE+BSE); BSE-exclusive stocks not accessible without browser automation. "
+        "Stored in bulk_deals with source=nse_bulk/nse_block."
+    ),
+)
+def bse_bulk_deals(context) -> None:
+    from data_collectors.insider_bulk_collector import collect_bulk_deals, collect_block_deals
+    n_bulk = collect_bulk_deals(days=7)
+    n_block = collect_block_deals(days=7)
+    context.log.info(f"BSE/NSE bulk deals: {n_bulk} bulk + {n_block} block stored")
+
+
+@asset(
+    group_name="nse_daily",
+    deps=[nse_technical_indicators, nse_fii_dii_flows, nse_corporate_actions, nse_news_sentiment, nse_fno_data, nse_block_deals, bse_bulk_deals],
     description="BUY/SELL/WATCH signal report. Reads all context data from DB after upstream assets run.",
 )
 def nse_signals(context) -> None:
@@ -267,6 +283,12 @@ nse_fno_job = define_asset_job(
     description="F&O daily collection: India VIX + participant OI PCR. Runs at 16:45 IST.",
 )
 
+bse_bulk_job = define_asset_job(
+    name="bse_bulk_job",
+    selection=AssetSelection.assets("bse_bulk_deals"),
+    description="Daily BSE/NSE bulk + block deals via NSE archive CSV. Runs 16:30 IST after market close.",
+)
+
 us_daily_job = define_asset_job(
     name="us_daily_job",
     selection=AssetSelection.groups("us_daily"),
@@ -316,6 +338,14 @@ nse_fno_schedule = ScheduleDefinition(
     description="Daily F&O data: India VIX + PCR (index/FII/total) from NSE archives.",
 )
 
+bse_bulk_schedule = ScheduleDefinition(
+    name="bse_bulk_daily",
+    job=bse_bulk_job,
+    cron_schedule="30 16 * * 1-5",    # 16:30 IST Mon-Fri (after NSE closes 15:30)
+    execution_timezone="Asia/Kolkata",
+    description="Daily bulk + block deal collection. BSE API is JS-blocked; uses NSE archive CSV fallback.",
+)
+
 us_daily_schedule = ScheduleDefinition(
     name="us_daily_market",
     job=us_daily_job,
@@ -339,6 +369,7 @@ defs = Definitions(
         nse_news_sentiment,
         nse_fno_data,
         nse_block_deals,
+        bse_bulk_deals,
         nse_signals,
         # nse_weekly
         nse_shareholding_pattern,
@@ -356,6 +387,7 @@ defs = Definitions(
         kite_token_job,
         nse_daily_job,
         nse_fno_job,
+        bse_bulk_job,
         nse_weekly_job,
         nse_monthly_job,
         us_daily_job,
@@ -364,6 +396,7 @@ defs = Definitions(
         kite_token_schedule,
         nse_daily_schedule,
         nse_fno_schedule,
+        bse_bulk_schedule,
         nse_weekly_schedule,
         nse_monthly_schedule,
         us_daily_schedule,

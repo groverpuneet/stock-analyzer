@@ -46,12 +46,13 @@
 
 ## Tier 1 — High signal, NSE market data (do next, in order)
 
-- [ ] BSE bulk + block deals — BSE-listed stocks not on NSE
-  - Source: BSE API (https://api.bseindia.com/BseIndiaAPI/api/bddeals/w)
-  - Table: existing bulk_deals with source=bse_bulk
-  - Dagster asset: bse_bulk_deals → feeds into signals
-  - Schedule: Daily 4:30 PM IST
-  - No personal data involved
+- [x] BSE bulk + block deals — BSE-listed stocks
+  - BSE API (api.bseindia.com) is JS-challenge blocked (returns HTML; even Playwright gets "Access Denied")
+  - Source: NSE archive CSV (bulk.csv, block.csv) + NSE snapshot API — covers dual-listed stocks (90%+ match)
+  - BSE-exclusive stocks require browser automation; deferred (same as NSE option chain)
+  - Table: bulk_deals with source=nse_bulk/nse_block — 442 bulk + 25 block rows
+  - Dagster asset: bse_bulk_deals (nse_daily group) → bse_bulk_job at 16:30 IST, feeds into nse_signals
+  - --bse-bulk flag added to scheduler/daily_tasks.py
 
 - [ ] MF portfolio holdings — what each mutual fund owns monthly
   - Source: AMFI monthly disclosure (JS-rendered, needs Playwright)
