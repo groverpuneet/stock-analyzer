@@ -32,3 +32,10 @@ dagster_home/
 
 # Stray build artifact
 /main
+
+# Web UI build artifacts / deps
+node_modules/
+webapp/frontend/dist/
+webapp/frontend/vite.config.js
+webapp/frontend/vite.config.d.ts
+*.tsbuildinfo

@@ -295,6 +295,22 @@ def us_raw_prices(context) -> None:
 
 @asset(
     group_name="us_daily",
+    description=(
+        "US insider transactions from SEC EDGAR Form 4 filings (last 30 days) for the "
+        "seeded US universe. Parses non-derivative buys/sells into insider_trades "
+        "(source='sec_form4'). Free; needs a contact-email User-Agent per SEC policy."
+    ),
+)
+def us_insider_trades(context) -> None:
+    from data_collectors.sec_form4_collector import collect_sec_form4
+    result = collect_sec_form4()
+    context.log.info(
+        f"SEC Form 4: {result['rows_upserted']} new txns across {result['stocks_with_data']} stocks"
+    )
+
+
+@asset(
+    group_name="us_daily",
     deps=[us_raw_prices],
     description="[PLACEHOLDER] US stock signals. Mirrors nse_signals logic for NYSE/NASDAQ.",
 )
@@ -467,6 +483,7 @@ defs = Definitions(
         nse_model_refresh,
         # us_daily
         us_raw_prices,
+        us_insider_trades,
         us_signals,
         # us_weekly
         us_macro,
