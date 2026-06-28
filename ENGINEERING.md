@@ -542,11 +542,35 @@ When using LLM APIs (Claude, etc.) in this project, optimize for minimum token u
   macro_indicators; re-runs upsert on (date, market, indicator).
 - **Requires venv310 (Python 3.10+)** — fastmcp does not support 3.9.
 
-## TODO: RBI Macro — Come Back Later
-- RBI DBIE SSL issue: Mac's LibreSSL 2.8.3 too old for RBI's server. Fix: pyOpenSSL (installed in venv310)
-  OR Playwright with ignore_https_errors=True (used for forex/credit collector).
-- MoSPI CPI/IIP: data.gov.in API key broken — superseded by the MoSPI MCP server above (also serves CPI, IIP).
-- Current state: GDP + WPI now live via MoSPI MCP; RBI rates seeded + DBIE homepage scrape.
+## RBI DBIE — Forex Reserves + Bank Credit Growth (DONE)
+- Source: RBI DBIE portal `data.rbi.org.in` driven by Playwright (headless Chromium,
+  `ignore_https_errors=True` — sidesteps Mac LibreSSL 2.8.3 rejecting RBI's TLS).
+- Collector: `data_collectors/rbi_dbie_collector.py`. Wired into `nse_macro_indicators` Dagster asset.
+- **Gateway auth crack (key insight):** the DBIE SPA mints a per-session token stored in
+  `sessionStorage['sessionId']` (format `<5 rand chars>0<epoch_ms>197`). The gateway at
+  `/CIMS_Gateway_DBIE/GATEWAY/SERVICES/` accepts it as the `authorization` header (+ `channelkey: key2`).
+  We load the home page so the SPA mints the token, read it from sessionStorage, then **replay** the
+  gateway calls via the shared request context. Forging the token fails ("Internal Server Error");
+  intercepting responses corrupts binary (Chromium re-encodes the XLSX to a UTF-8 string). Replay with
+  the live token is the only clean path.
+- Forex reserves: `dbie_foreignExchangeReserves` service, reserveCode in {TR, FCA, GOLD, SDR, IMF},
+  frequency Weekly. Amount is raw USD -> stored as USD_billion. Total + components latest value;
+  12-week trend kept for the total.
+- Bank credit / deposits: the official "Macro-economic Indicators" XLSX
+  (`download/dbie_FileDownloadHDFSAction`, Filename "MacroeconomicIndicators"), Fortnightly sheet —
+  Bank Credit, Non-Food Credit, Aggregate Deposits outstanding (₹ crore). YoY growth computed vs the
+  fortnight ~365 days earlier. Requires openpyxl.
+- Indicators (source='rbi_dbie'): forex_reserves_total/_fca/_gold/_sdr/_imf, bank_credit_outstanding,
+  bank_credit_growth_yoy, non_food_credit_growth_yoy, aggregate_deposits_growth_yoy, credit_deposit_ratio.
+
+## Docker note — Python 3.10 required
+- `dagster/Dockerfile` is now `python:3.10-slim` (was 3.9). fastmcp (MoSPI MCP) needs 3.10+.
+- After pulling these changes run `docker compose up --build` once so the image picks up the new base
+  image + openpyxl. Code changes alone need no rebuild (live `.:/opt/dagster/app` mount); dependency/
+  base-image changes do. docker-compose.yml needs no edits — it builds from the Dockerfile.
+
+## MoSPI CPI/IIP note
+- data.gov.in API key broken — superseded by the MoSPI MCP server (see "MoSPI Macro" above; also serves CPI, IIP).
 
 ## TODO: MF Portfolio Holdings
 - AMFI portfolio holdings page is JS-rendered (Next.js) — not scrapable with requests
