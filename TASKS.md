@@ -55,19 +55,19 @@
   - --bse-bulk flag added to scheduler/daily_tasks.py
 
 - [ ] MF portfolio holdings — what each mutual fund owns monthly
-  - Source: AMFI monthly disclosure (JS-rendered, needs Playwright)
-  - Table: mf_holdings (new) — fund_name, symbol, stock_id, quantity, value, month
-  - Dagster asset: mf_holdings → feeds into signals
-  - Schedule: Monthly, 11th of each month (released by 10th)
-  - Playwright already in requirements — use headless Chrome
-  - No personal data involved — this is public SEBI-mandated disclosure
-
-- [ ] Google Trends — search interest as sentiment proxy
-  - Source: pytrends library (no API key needed)
-  - Table: existing macro_indicators with indicator=google_trends_{symbol}
-  - Dagster asset: google_trends → feeds into signals
-  - Schedule: Weekly Sunday
+  - Source: AMFI monthly disclosure — BLOCKED: new AMFI site is Next.js SPA; portfolio pages 404;
+    individual AMC download URLs 403/404; no consolidated API endpoint accessible
+  - Workaround path: scrape 44 individual AMC websites (each has its own PDF format) — deferred
+  - DII% in shareholding_pattern already captures aggregate MF+insurance ownership direction
+  - Table: mf_holdings (new) — deferred until accessible API found
   - No personal data involved
+
+- [x] Google Trends — search interest as sentiment proxy
+  - Source: pytrends library (geo=IN, company names as search terms)
+  - Table: macro_indicators with indicator=google_trends_{symbol} — 920 rows (10 stocks × 92 days)
+  - Dagster asset: google_trends (nse_weekly group, Sunday 07:30 IST)
+  - --google-trends flag added to scheduler/daily_tasks.py; added to run_weekly_pipeline()
+  - Timeframe: 3-month history on first run, 1-month on subsequent runs
 
 ---
 

@@ -214,6 +214,23 @@ def nse_insider_trades(context) -> None:
     collect_insider_and_bulk(days=7)
 
 
+@asset(
+    group_name="nse_weekly",
+    description=(
+        "Google Search interest (0–100) for each watchlist stock by company name in India. "
+        "Stored in macro_indicators as google_trends_{SYMBOL}. "
+        "Fetches last 90 days on first run, last 30 days on subsequent runs. "
+        "Source: Google Trends via pytrends (geo=IN)."
+    ),
+)
+def google_trends(context) -> None:
+    from data_collectors.google_trends_collector import collect_google_trends
+    result = collect_google_trends()
+    context.log.info(
+        f"Google Trends: {result['rows_upserted']} rows, {result['stocks_processed']} stocks"
+    )
+
+
 # ── NSE Monthly Assets ────────────────────────────────────────────────────────
 
 @asset(
@@ -377,6 +394,7 @@ defs = Definitions(
         nse_fundamentals,
         nse_macro_indicators,
         nse_insider_trades,
+        google_trends,
         # nse_monthly
         nse_model_refresh,
         # us_daily
