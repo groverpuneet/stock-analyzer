@@ -302,6 +302,25 @@ def us_signals(context) -> None:
     context.log.info("us_signals: placeholder — no US data source wired yet")
 
 
+# ── US Weekly Assets ──────────────────────────────────────────────────────────
+
+@asset(
+    group_name="us_weekly",
+    description=(
+        "US macro indicators in macro_indicators (market='US', source='fred'). "
+        "FRED keyless fredgraph.csv endpoint via curl: Fed funds rate (FEDFUNDS), "
+        "CPI index + YoY inflation (CPIAUCSL), unemployment rate (UNRATE), "
+        "real GDP level + YoY growth (GDPC1)."
+    ),
+)
+def us_macro(context) -> None:
+    from data_collectors.fred_macro_collector import collect_fred_macro
+    result = collect_fred_macro()
+    context.log.info(
+        f"FRED macro: {result['rows_upserted']} rows across {result['indicators']}"
+    )
+
+
 # ── Jobs ──────────────────────────────────────────────────────────────────────
 
 kite_token_job = define_asset_job(
@@ -344,6 +363,12 @@ us_daily_job = define_asset_job(
     name="us_daily_job",
     selection=AssetSelection.groups("us_daily"),
     description="US daily pipeline (placeholder — enable when data source is wired).",
+)
+
+us_weekly_job = define_asset_job(
+    name="us_weekly_job",
+    selection=AssetSelection.groups("us_weekly"),
+    description="US weekly batch: FRED macro indicators (Fed rate, CPI, GDP, unemployment).",
 )
 
 
@@ -405,6 +430,14 @@ us_daily_schedule = ScheduleDefinition(
     description="[PLACEHOLDER] US post-market pipeline. Enable when data source is wired.",
 )
 
+us_weekly_schedule = ScheduleDefinition(
+    name="us_weekly",
+    job=us_weekly_job,
+    cron_schedule="0 7 * * 0",        # 07:00 EST Sunday
+    execution_timezone="America/New_York",
+    description="Weekly US macro refresh from FRED (Fed rate, CPI, GDP, unemployment).",
+)
+
 
 # ── Top-level Definitions ─────────────────────────────────────────────────────
 
@@ -435,6 +468,8 @@ defs = Definitions(
         # us_daily
         us_raw_prices,
         us_signals,
+        # us_weekly
+        us_macro,
     ],
     jobs=[
         kite_token_job,
@@ -444,6 +479,7 @@ defs = Definitions(
         nse_weekly_job,
         nse_monthly_job,
         us_daily_job,
+        us_weekly_job,
     ],
     schedules=[
         kite_token_schedule,
@@ -453,5 +489,6 @@ defs = Definitions(
         nse_weekly_schedule,
         nse_monthly_schedule,
         us_daily_schedule,
+        us_weekly_schedule,
     ],
 )

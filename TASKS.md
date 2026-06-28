@@ -126,11 +126,19 @@
   - Table: existing fundamentals with market=US
   - Dagster asset: us_fundamentals
 
-- [ ] FRED macro data — Fed rate, US CPI, GDP, unemployment
-  - Source: FRED API (free, no key needed for basic access)
-  - Table: existing macro_indicators with market=US
-  - Dagster asset: us_macro
-  - Schedule: Weekly
+- [x] FRED macro data — Fed rate, US CPI, GDP, unemployment
+  - Source: FRED keyless `fredgraph.csv` endpoint (fred.stlouisfed.org) — no API key
+  - Collector: data_collectors/fred_macro_collector.py (fetched via curl subprocess)
+  - Fetch note: FRED is behind Akamai. Python requests/urllib/httpx get RemoteDisconnected
+    (TLS ClientHello dropped); curl's fingerprint is accepted. Also Akamai TARPITS a custom
+    User-Agent on this endpoint (hangs, 0 bytes) — must use curl's default UA. Use --http1.1.
+    curl ships in the Dagster container image (dagster/Dockerfile line 21) so this is portable.
+  - Series: FEDFUNDS→fed_funds_rate, CPIAUCSL→cpi_index + cpi_inflation_yoy (computed YoY),
+    UNRATE→unemployment_rate, GDPC1→gdp_real + gdp_growth_yoy (computed YoY)
+  - Table: macro_indicators, market='US', source='fred' — 227 rows (4yr history)
+    Latest: Fed funds 3.63%, CPI infl 4.27% YoY, unemployment 4.3%, real GDP +2.68% YoY
+  - Dagster asset: us_macro (us_weekly group) → us_weekly_job, Sunday 07:00 EST
+  - Migration 0010 seeds the US stock universe (30 NYSE/NASDAQ large caps) + US refresh_log rows
 
 - [ ] US insider trades — SEC Form 4 filings
   - Source: SEC EDGAR API (free, https://data.sec.gov/api/xbrl/)
