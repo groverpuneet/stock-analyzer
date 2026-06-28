@@ -15,6 +15,7 @@ Dagster equivalents for each flag:
   --macro           →  dagster asset materialize -f dagster/repository.py --select nse_macro_indicators
   --insider         →  dagster asset materialize -f dagster/repository.py --select nse_insider_trades
   --news            →  dagster asset materialize -f dagster/repository.py --select nse_news_sentiment
+  --shareholding    →  dagster asset materialize -f dagster/repository.py --select nse_shareholding_pattern
   --expand-universe →  dagster asset materialize -f dagster/repository.py --select nse_stock_universe
   --model-refresh   →  dagster job execute -f dagster/repository.py --job nse_monthly_job
   --daily           →  dagster job execute -f dagster/repository.py --job nse_daily_job
@@ -34,6 +35,7 @@ Commands:
   python scheduler/daily_tasks.py --macro            # run RBI macro only
   python scheduler/daily_tasks.py --insider          # run insider trades + bulk deals only
   python scheduler/daily_tasks.py --news             # run news sentiment only
+  python scheduler/daily_tasks.py --shareholding      # shareholding pattern (promoter/FII/DII)
   python scheduler/daily_tasks.py --expand-universe  # sync full NSE EQ instrument list
   python scheduler/daily_tasks.py --model-refresh    # run monthly model refresh
   python scheduler/daily_tasks.py --daily            # run full daily pipeline
@@ -56,6 +58,7 @@ from utils.db import get_refresh_status, needs_refresh
 from data_collectors.insider_bulk_collector import collect_insider_and_bulk
 from data_collectors.news_collector import collect_news
 from data_collectors.expand_stock_universe import run_expand_universe
+from data_collectors.shareholding_collector import collect_shareholding
 from kite_auth.auto_login import refresh_token as kite_refresh_token
 from jobs.model_refresh import run_model_refresh
 from utils.logger import get_logger
@@ -186,6 +189,18 @@ def task_model_refresh():
         log.error(f"=== TASK FAILED: Model refresh — {e} ===", exc_info=True)
 
 
+def task_shareholding():
+    log.info("=== TASK START: Shareholding pattern ===")
+    if not needs_refresh('shareholding_pattern', min_hours=6 * 24):
+        log.info("Shareholding: skipping — ran within last 6 days")
+        return
+    try:
+        result = collect_shareholding()
+        log.info(f"=== TASK DONE: Shareholding — {result} ===")
+    except Exception as e:
+        log.error(f"=== TASK FAILED: Shareholding — {e} ===", exc_info=True)
+
+
 def task_expand_universe():
     log.info("=== TASK START: Expand stock universe ===")
     if not needs_refresh('stock_universe', min_hours=6 * 24):
@@ -221,6 +236,7 @@ def run_daily_pipeline():
 
 def run_weekly_pipeline():
     log.info("Starting weekly pipeline")
+    task_shareholding()
     task_expand_universe()
     task_screener()
     task_rbi_macro()
@@ -274,6 +290,8 @@ if __name__ == "__main__":
         task_nse_actions()
     elif '--macro' in args:
         task_rbi_macro()
+    elif '--shareholding' in args:
+        task_shareholding()
     elif '--expand-universe' in args:
         task_expand_universe()
     elif '--insider' in args:
@@ -306,6 +324,7 @@ Manual task flags (for debugging / backfill):
   --screener         Screener.in fundamentals
   --macro            RBI macro indicators
   --insider          insider trades + bulk deals
+  --shareholding     shareholding pattern (promoter/FII/DII/public %)
   --news             news sentiment (FinBERT)
   --expand-universe  sync full NSE EQ instrument list
   --model-refresh    monthly model refresh

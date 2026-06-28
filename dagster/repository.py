@@ -133,6 +133,22 @@ def nse_signals(context) -> None:
 
 @asset(
     group_name="nse_weekly",
+    description=(
+        "Quarterly shareholding pattern from Screener.in: promoter %, FII %, DII %, "
+        "government %, public % for all watchlist stocks. Skips if no new quarter available."
+    ),
+)
+def nse_shareholding_pattern(context) -> None:
+    from data_collectors.shareholding_collector import collect_shareholding
+    result = collect_shareholding()
+    context.log.info(
+        f"Shareholding: {result['rows_inserted']} new, {result['rows_updated']} updated, "
+        f"{result['stocks_checked']} stocks"
+    )
+
+
+@asset(
+    group_name="nse_weekly",
     description="Sync full NSE EQ instrument list (~2000 stocks) into stocks table via Kite.",
 )
 def nse_stock_universe(context) -> None:
@@ -310,6 +326,7 @@ defs = Definitions(
         nse_fno_data,
         nse_signals,
         # nse_weekly
+        nse_shareholding_pattern,
         nse_stock_universe,
         nse_fundamentals,
         nse_macro_indicators,

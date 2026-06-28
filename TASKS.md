@@ -26,19 +26,19 @@
   - Dagster asset: nse_fno_data (nse_daily group) + dedicated nse_fno_job (16:45 IST)
   - Note: Per-strike option chain blocked by NSE JS challenge; max_pain NULL pending browser automation
 
+- [x] Shareholding pattern — promoter %, FII %, DII %, government %, public %
+  - Source: Screener.in (aggregates NSE/BSE SEBI quarterly filings)
+  - Table: shareholding_pattern — 120 rows (10 stocks × 12 quarters), 2023-Q2 to 2026-Q1/Q2
+  - Dagster asset: nse_shareholding_pattern (nse_weekly group, Sunday 7:30 IST)
+  - Lag handling: skips stocks already up to date; ON CONFLICT upsert on new quarter arrival
+  - NSE API blocked by JS challenge — Screener.in used as authoritative proxy
+
 ### IN PROGRESS
 - None
 
 ---
 
 ## Tier 1 — High signal, NSE market data (do next, in order)
-
-- [ ] Shareholding pattern — promoter %, FII %, DII %, public %
-  - Source: NSE quarterly filings API
-  - Table: shareholding_pattern (new) — symbol, quarter, promoter_pct, fii_pct, dii_pct, public_pct
-  - Dagster asset: shareholding_pattern → feeds into signals
-  - Schedule: Quarterly (check weekly, insert when new data available)
-  - No personal data involved
 
 - [ ] Block deals — large negotiated trades (separate from bulk deals)
   - Source: NSE API (snapshot-capital-market-largedeal?type=block_deals)
