@@ -4,6 +4,8 @@ import StockDetail from "./pages/StockDetail";
 import Macro from "./pages/Macro";
 import Watchlist from "./pages/Watchlist";
 import Opportunities from "./pages/Opportunities";
+import DataSources from "./pages/DataSources";
+import RefreshStatus from "./pages/RefreshStatus";
 import ChatWidget from "./components/ChatWidget";
 
 const nav = [
@@ -11,6 +13,8 @@ const nav = [
   { to: "/macro", label: "Macro" },
   { to: "/watchlist", label: "Watchlist" },
   { to: "/opportunities", label: "Opportunities" },
+  { to: "/data-sources", label: "Data Sources" },
+  { to: "/refresh-status", label: "Refresh Status" },
 ];
 
 export default function App() {
@@ -49,6 +53,8 @@ export default function App() {
           <Route path="/macro" element={<Macro />} />
           <Route path="/watchlist" element={<Watchlist />} />
           <Route path="/opportunities" element={<Opportunities />} />
+          <Route path="/data-sources" element={<DataSources />} />
+          <Route path="/refresh-status" element={<RefreshStatus />} />
         </Routes>
       </main>
 
