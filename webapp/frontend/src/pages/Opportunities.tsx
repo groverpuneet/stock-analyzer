@@ -15,9 +15,12 @@ export default function Opportunities() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-100">Opportunity Alerts</h1>
-        <p className="text-sm text-slate-400">Signals worth a look that aren’t already on your watchlist.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-100">Opportunity Alerts</h1>
+          <p className="text-sm text-slate-400">Signals worth a look that aren’t already on your watchlist.</p>
+        </div>
+        <LastUpdated page="opportunities" />
       </div>
 
       <Card title="Strong news sentiment" subtitle="FinBERT-scored headlines, |score| ≥ 0.5, last 30 days">

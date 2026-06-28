@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, fmt } from "../api";
 import SignalBadge from "../components/SignalBadge";
 import { Loading, Error } from "./Dashboard";
+import LastUpdated from "../components/LastUpdated";
 
 export default function Watchlist() {
   const [names, setNames] = useState<string[]>([]);
@@ -50,6 +51,7 @@ export default function Watchlist() {
         <div>
           <h1 className="text-xl font-semibold text-slate-100">Watchlist Manager</h1>
           <p className="text-sm text-slate-400">Track symbols across named lists. Public market data only — no holdings or P&L.</p>
+          <div className="mt-1"><LastUpdated page="watchlist" /></div>
         </div>
         <div className="flex gap-1">
           {names.map((n) => (

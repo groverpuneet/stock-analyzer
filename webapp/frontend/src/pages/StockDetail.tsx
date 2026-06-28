@@ -6,6 +6,7 @@ import {
 import { api, fmt } from "../api";
 import SignalBadge from "../components/SignalBadge";
 import { Loading, Error } from "./Dashboard";
+import LastUpdated from "../components/LastUpdated";
 
 export default function StockDetail() {
   const { id } = useParams();
@@ -47,6 +48,7 @@ export default function StockDetail() {
             <span className="text-xs text-slate-500">{stock.exchange}</span>
           </div>
           <p className="text-sm text-slate-400">{stock.name}</p>
+          <div className="mt-1"><LastUpdated page="stock" /></div>
         </div>
         {signal && (
           <div className="text-right">
