@@ -165,8 +165,10 @@
   - No new table; folded into existing collect_news() → nse_news_sentiment asset,
     source stays 'news_sentiment'. Verified clean US matches (AAPL, BAC, NVDA, NKE)
 
-- [ ] Congress trades — US politicians stock trades (high signal)
-  - Source: Quiver Quant API (free tier available)
+- [ ] Congress trades — US politicians stock trades (high signal)  ⏸ BLOCKED: pending API key
+  - Source: Quiver Quant API (free tier) — token unavailable: Quiver dashboard returning
+    HTTP 500 when issuing API keys (2026-06-28). Revisit when the dashboard is back up.
+  - Keyless fallback ruled out: House/Senate Stock Watcher S3 buckets now return AccessDenied.
   - Table: congress_trades (new) — politician, symbol, transaction, amount, date
   - Dagster asset: congress_trades → feeds into us_signals
   - Schedule: Daily
