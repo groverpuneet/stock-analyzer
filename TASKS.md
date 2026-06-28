@@ -84,9 +84,11 @@
   - Table: existing macro_indicators
   - Requires: pip install fastmcp
 
-- [ ] F&O expiry calendar
-  - Source: NSE API
-  - Table: expiry_calendar (new)
+- [x] F&O expiry calendar
+  - Source: Kite Connect instruments('NFO') — 46,402 instruments, 18 unique expiries
+  - Table: expiry_calendar — 18 rows (4 weekly, 3 monthly, 11 quarterly)
+  - Dagster asset: nse_expiry_calendar (nse_weekly group, Sunday 07:30 IST)
+  - Classification: weekly (NIFTY CE/PE only ≤60d), monthly (has FUT ≤95d), quarterly (far-dated)
   - Used by: F&O data asset to know current expiry
 
 - [ ] RBI monetary policy calendar

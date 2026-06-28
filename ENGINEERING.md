@@ -180,6 +180,7 @@ Located in `alembic/versions/`. Named `YYYYMMDD_XXXX_description.py`.
 | `0002_add_integrations_and_multi_market` | New tables for all integrations + multi-market `market` column |
 | `0005_allow_null_stock_id_in_news_sentiment` | Makes news_sentiment.stock_id nullable for unmatched headlines |
 | `0006_add_stock_scores_and_baselines` | stock_scores + indicator_baselines tables for monthly model refresh |
+| `0009_add_expiry_calendar` | expiry_calendar table — weekly/monthly/quarterly F&O expiry dates from Kite NFO |
 
 ### Useful DB Queries
 
