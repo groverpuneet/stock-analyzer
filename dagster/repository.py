@@ -231,6 +231,25 @@ def google_trends(context) -> None:
     )
 
 
+@asset(
+    group_name="nse_weekly",
+    description=(
+        "F&O expiry calendar from Kite NFO instruments. "
+        "Classifies each expiry date as weekly (NIFTY options, every Tuesday near-term), "
+        "monthly (all stocks + FUT + options, end of each month), "
+        "or quarterly (long-dated index options, quarter-end). "
+        "18 rows — refreshed weekly as new contracts are listed."
+    ),
+)
+def nse_expiry_calendar(context) -> None:
+    from data_collectors.expiry_calendar_collector import collect_expiry_calendar
+    result = collect_expiry_calendar()
+    context.log.info(
+        f"Expiry calendar: {result['rows_upserted']} rows "
+        f"({result['weekly']} weekly, {result['monthly']} monthly, {result['quarterly']} quarterly)"
+    )
+
+
 # ── NSE Monthly Assets ────────────────────────────────────────────────────────
 
 @asset(
@@ -395,6 +414,7 @@ defs = Definitions(
         nse_macro_indicators,
         nse_insider_trades,
         google_trends,
+        nse_expiry_calendar,
         # nse_monthly
         nse_model_refresh,
         # us_daily
