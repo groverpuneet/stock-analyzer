@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api, fmt } from "../api";
 import { Loading, Error } from "./Dashboard";
+import LastUpdated from "../components/LastUpdated";
 
 const LABELS: Record<string, string> = {
   repo_rate: "Repo Rate", reverse_repo_rate: "Reverse Repo", crr: "CRR", slr: "SLR",
@@ -27,9 +28,12 @@ export default function Macro() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-100">Macro Snapshot</h1>
-        <p className="text-sm text-slate-400">RBI rates, forex reserves, FII/DII flows, GDP & inflation — all live from the database.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-100">Macro Snapshot</h1>
+          <p className="text-sm text-slate-400">RBI rates, forex reserves, FII/DII flows, GDP & inflation — all live from the database.</p>
+        </div>
+        <LastUpdated page="macro" />
       </div>
 
       <Section title="RBI Policy Rates">

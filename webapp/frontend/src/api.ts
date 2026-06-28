@@ -46,6 +46,37 @@ export const api = {
   removeWatchlist: (entryId: number) =>
     fetch(`/api/watchlist/${entryId}`, { method: "DELETE" }),
   opportunities: () => get<any>("/api/opportunities"),
+  lastUpdated: (page: string) => get<any>(`/api/refresh/last?page=${page}`),
+  refreshSources: () => get<any>("/api/refresh/sources"),
+  refreshStatus: () => get<any>("/api/refresh/status"),
+  trigger: (source: string) =>
+    fetch("/api/refresh/trigger", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ source }),
+    }).then((r) => r.json()),
+  runStatus: (runId: string) => get<any>(`/api/refresh/run-status?run_id=${runId}`),
+};
+
+// "2026-06-28T04:03:50" -> "2h ago" / "3d ago"
+export function relTime(iso: string | null): string {
+  if (!iso) return "never";
+  const then = new Date(iso).getTime();
+  const mins = Math.floor((Date.now() - then) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+export const statusClass: Record<string, string> = {
+  success: "bg-buy/15 text-buy border-buy/30",
+  error: "bg-sell/15 text-sell border-sell/30",
+  failed: "bg-sell/15 text-sell border-sell/30",
+  running: "bg-watch/15 text-watch border-watch/30",
+  never_run: "bg-slate-600/15 text-slate-400 border-slate-600/30",
 };
 
 export const fmt = {

@@ -580,6 +580,16 @@ When using LLM APIs (Claude, etc.) in this project, optimize for minimum token u
 - SEC CIK is resolved at runtime (not stored) via www.sec.gov/files/company_tickers.json.
 - Migration 0010 also seeds data_refresh_log rows: us_prices, fred_macro, sec_form4, us_news.
 
+### US OHLCV — Polygon.io (DONE)
+- Source: Polygon.io Aggregates (Bars) API, free tier (5 calls/min, end-of-day, ~2yr history).
+- Key: `POLYGON_API_KEY` in `.env` (loaded via python-dotenv, same pattern as Kite collectors).
+  Also added to `docker-compose.yml` `x-stock-env` anchor and `.env.example`.
+- Collector: `data_collectors/polygon_prices_collector.py`. Dagster asset `us_raw_prices` (us_daily).
+- Rate limiting: sleep ~13s between calls (<5/min) + exponential backoff on HTTP 429.
+- `collect_us_prices(lookback_days=7)` for the daily asset; `collect_us_prices(years=2)` (default) for a
+  one-time backfill. Bars upsert on the existing daily_prices unique key (stock_id, date).
+- Polygon `t` is epoch ms at ET-midnight start-of-day → convert to calendar date (UTC date is correct).
+
 ### FRED US macro (DONE)
 - Source: FRED keyless `fredgraph.csv` download endpoint (no API key, unlike the JSON API).
 - Collector: `data_collectors/fred_macro_collector.py`. Dagster asset `us_macro` (us_weekly group,

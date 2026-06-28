@@ -113,12 +113,14 @@
 
 ## Tier 3 — US market (after NSE Tier 1 + 2 complete)
 
-- [ ] US OHLCV prices
-  - Source: Polygon.io free tier (5 API calls/min, 2 years history)
-  - API key needed: register at polygon.io (free)
-  - Table: existing daily_prices with market=NYSE or NASDAQ
-  - Dagster asset: us_raw_prices
-  - Schedule: Daily 4:30 PM EST (weekdays)
+- [x] US OHLCV prices
+  - Source: Polygon.io Aggregates API, free tier (5 calls/min, EOD, ~2yr history)
+  - Key: POLYGON_API_KEY in .env (+ docker-compose x-stock-env + .env.example placeholder)
+  - Collector: data_collectors/polygon_prices_collector.py (requests + dotenv).
+    Rate-limited 13s/call (<5/min) with 429 backoff. `lookback_days` for daily incremental,
+    `years` for the one-time 2yr backfill.
+  - Table: daily_prices (US stocks via stocks join) — 30 stocks × ~500 bars (2yr backfill)
+  - Dagster asset: us_raw_prices (us_daily group) — daily incremental pulls last 7 days
   - No personal data involved
 
 - [ ] US fundamentals
