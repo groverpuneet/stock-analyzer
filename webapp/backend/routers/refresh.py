@@ -32,7 +32,7 @@ SOURCE_META: dict[str, dict] = {
     "mospi_macro": {"provides": "GDP + WPI (MoSPI MCP)", "asset": "nse_macro_indicators"},
     "rbi_dbie": {"provides": "Forex reserves + bank credit (RBI DBIE)", "asset": "nse_macro_indicators"},
     "insider_trades": {"provides": "Insider (SEBI PIT) + bulk deals", "asset": "nse_insider_trades"},
-    "google_trends": {"provides": "Google search interest (proxy)", "asset": "google_trends"},
+    "google_trends": {"provides": "Google search interest (proxy)", "asset": "nse_google_trends"},
     "model_refresh": {"provides": "Stock scores + baselines (monthly model)", "asset": "nse_model_refresh"},
     "us_prices": {"provides": "US OHLCV prices", "asset": "us_raw_prices"},
     "sec_form4": {"provides": "US insider trades (SEC Form 4)", "asset": "us_insider_trades"},

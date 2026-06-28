@@ -368,16 +368,38 @@ python scheduler/daily_tasks.py --fii
 python scheduler/daily_tasks.py --status
 ```
 
-### Key files
+### Key files (modular layout)
+`dagster/repository.py` is a thin entrypoint — it only imports the modules below and
+assembles `Definitions`. Assets/jobs/schedules/sensors live in their own files.
+
 | File | Purpose |
 |------|---------|
-| `dagster/repository.py` | All @asset definitions, jobs, schedules — single source of truth for orchestration |
-| `workspace.yaml` | Code location for `dagster dev` (python_file mode) |
-| `dagster/workspace.docker.yaml` | Code location for Docker (grpc_server mode) |
-| `dagster/dagster.yaml` | Instance config (Postgres storage via env vars) |
-| `dagster/Dockerfile` | Image for user-code + webserver + daemon containers |
-| `docker-compose.yml` | Four services: dagster-db, user-code, webserver, daemon |
+| `dagster/repository.py` | Thin orchestration: imports modules → `Definitions(assets, jobs, schedules, sensors)` |
+| `dagster/assets/kite_infra.py` | `kite_token_refreshed` |
+| `dagster/assets/nse_daily.py` | nse_raw_prices, technical_indicators, fii_dii, corporate_actions, news_sentiment, fno_data, block_deals, bse_bulk_deals, signals |
+| `dagster/assets/nse_weekly.py` | stock_universe, fundamentals, macro_indicators, insider_trades, shareholding_pattern, expiry_calendar, nse_google_trends |
+| `dagster/assets/nse_monthly.py` | `nse_model_refresh` (loads project-root `jobs/model_refresh.py` by file path — see below) |
+| `dagster/assets/us_daily.py` | us_raw_prices, us_insider_trades, us_signals |
+| `dagster/assets/us_weekly.py` | `us_macro` (FRED) |
+| `dagster/jobs.py` | All `define_asset_job`s (incl. `nse_news_job` used by the sensor) → `ALL_JOBS` |
+| `dagster/schedules.py` | All `ScheduleDefinition`s → `ALL_SCHEDULES` |
+| `dagster/sensors.py` | `watchlist_change_sensor` (60s) → `ALL_SENSORS` |
+| `workspace.yaml` / `dagster/workspace.docker.yaml` | Code locations (python_file / grpc_server) |
+| `dagster/Dockerfile`, `docker-compose.yml` | Image + four services (dagster-db, user-code, webserver, daemon) |
 | `scheduler/daily_tasks.py` | Manual CLI task runner (no APScheduler — Dagster schedules instead) |
+
+**Import note (name collisions):** the local `dagster/` dir is put first on `sys.path` so
+sibling modules import by bare name (`from jobs import …`, `from assets.nse_daily import …`).
+This shadows the project-root `jobs/` package on the bare name `jobs`, so `nse_monthly`
+loads `jobs/model_refresh.py` by explicit file path. `from dagster import …` still resolves
+to the installed library (our dir isn't a `dagster`-named package on the path).
+
+### Watchlist change sensor
+`watchlist_change_sensor` (in `dagster/sensors.py`, `default_status=RUNNING`) polls every 60s,
+finds Default-watchlist **NSE** stocks with no `daily_prices` in 30 days that aren't already in
+`watchlist_changes` (migration 0011), logs them, and triggers `nse_daily_job → nse_weekly_job →
+nse_news_job`. MF instruments (NAV, not OHLCV) are excluded so they don't fire forever.
+One-off backfill of stale watchlist prices: `data_collectors/backfill_watchlist_prices.py`.
 
 ---
 
