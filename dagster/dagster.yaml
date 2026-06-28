@@ -1,0 +1,40 @@
+# dagster/dagster.yaml — Dagster instance configuration
+# Set DAGSTER_HOME=dagster/ before running dagster dev with Postgres storage.
+#
+# Storage is configured via environment variables so the same file works
+# for local dev (pointing at the dagster-db Docker container on port 5433)
+# and inside Docker containers (where dagster-db resolves via Docker DNS).
+#
+# Local dev quick-start (no Postgres needed):
+#   dagster dev -w workspace.yaml            # uses default SQLite at ~/.dagster
+#
+# Local dev with Postgres (start dagster-db container first):
+#   docker compose up dagster-db -d
+#   export DAGSTER_HOME="$PWD/dagster"
+#   export DAGSTER_POSTGRES_USER=dagster_user
+#   export DAGSTER_POSTGRES_PASSWORD=dagster_pass
+#   export DAGSTER_POSTGRES_DB=dagster_db
+#   export DAGSTER_POSTGRES_HOSTNAME=localhost
+#   export DAGSTER_POSTGRES_PORT=5433
+#   dagster dev -w workspace.yaml
+
+storage:
+  postgres:
+    postgres_db:
+      username:
+        env: DAGSTER_POSTGRES_USER
+      password:
+        env: DAGSTER_POSTGRES_PASSWORD
+      hostname:
+        env: DAGSTER_POSTGRES_HOSTNAME
+      db_name:
+        env: DAGSTER_POSTGRES_DB
+      port:
+        env: DAGSTER_POSTGRES_PORT
+
+scheduler:
+  module: dagster.core.scheduler.daemon
+  class: DagsterDaemonScheduler
+
+telemetry:
+  enabled: false

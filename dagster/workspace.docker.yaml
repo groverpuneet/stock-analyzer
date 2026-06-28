@@ -1,0 +1,11 @@
+# dagster/workspace.docker.yaml — Dagster code location for Docker deployment
+#
+# Used by: docker-compose webserver + daemon services (via -w flag).
+# Points at the user-code gRPC server (running in its own container).
+# For local development, use workspace.yaml at the project root instead.
+
+load_from:
+  - grpc_server:
+      host: user-code
+      port: 4000
+      location_name: stock_analyzer

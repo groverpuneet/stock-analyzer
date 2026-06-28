@@ -1,0 +1,11 @@
+# workspace.yaml — Dagster code location for local development
+#
+# Used by: dagster dev
+# Points at the repository.py file directly (in-process, no gRPC).
+# For Docker deployment, use dagster/workspace.docker.yaml instead.
+
+load_from:
+  - python_file:
+      relative_path: dagster/repository.py
+      location_name: stock_analyzer
+      working_directory: .
