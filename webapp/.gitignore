@@ -1,0 +1,11 @@
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/vite.config.js
+frontend/vite.config.d.ts
+frontend/*.tsbuildinfo
+frontend/node_modules/.tmp/
+
+# Backend
+backend/__pycache__/
+backend/**/__pycache__/

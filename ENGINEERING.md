@@ -594,6 +594,21 @@ When using LLM APIs (Claude, etc.) in this project, optimize for minimum token u
   UNRATE→unemployment_rate, GDPC1→gdp_real + gdp_growth_yoy (computed YoY). ~4yr history, 227 rows.
 - Date convention: FRED observation_date as-is; upsert on (date, market, indicator).
 
+### SEC EDGAR Form 4 — US insider trades (DONE)
+- Source: SEC EDGAR (free). Unlike FRED, SEC accepts Python `requests` TLS directly. SEC fair-access
+  policy **requires a descriptive User-Agent with a contact email** — we send the project owner's.
+  Throttled to 0.15s/request (SEC guidance is <10 req/s).
+- Collector: `data_collectors/sec_form4_collector.py`. Dagster asset `us_insider_trades` (us_daily group).
+- Flow: `www.sec.gov/files/company_tickers.json` (ticker→CIK, fetched once) →
+  `data.sec.gov/submissions/CIK<cik>.json` (filings.recent; keep form=='4' filed within 30 days) →
+  fetch the ownership XML and parse `nonDerivativeTable/nonDerivativeTransaction`.
+- **Raw-XML gotcha:** `primaryDocument` points at the XSL-rendered HTML (`xslF345X06/form4.xml`).
+  The raw XML is the same path with that render prefix stripped — take `primaryDocument.rsplit('/',1)[-1]`.
+- Leaf values: Form 4 fields are sometimes wrapped in a `<value>` child, sometimes bare — handle both.
+- Mapping → insider_trades (source='sec_form4'): transaction code P→BUY, S→SELL, else the raw code
+  (M exercise, F tax, A grant, G gift, X, C…); person_category from isDirector/isOfficer(+title)/
+  isTenPercentOwner; price NULL for grants/exercises. Upsert on (stock_id,date,person_name,transaction,quantity).
+
 ## TODO: MF Portfolio Holdings
 - AMFI portfolio holdings page is JS-rendered (Next.js) — not scrapable with requests
 - Each AMC publishes monthly holdings on their own website by 10th of month

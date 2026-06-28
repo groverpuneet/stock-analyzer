@@ -140,11 +140,17 @@
   - Dagster asset: us_macro (us_weekly group) → us_weekly_job, Sunday 07:00 EST
   - Migration 0010 seeds the US stock universe (30 NYSE/NASDAQ large caps) + US refresh_log rows
 
-- [ ] US insider trades — SEC Form 4 filings
-  - Source: SEC EDGAR API (free, https://data.sec.gov/api/xbrl/)
-  - Table: existing insider_trades with source=sec_form4
-  - Dagster asset: us_insider_trades
-  - Schedule: Daily
+- [x] US insider trades — SEC Form 4 filings
+  - Source: SEC EDGAR (free). Needs a contact-email User-Agent per SEC fair-access policy;
+    SEC accepts Python requests TLS (unlike FRED). Throttled 0.15s/req (<10 req/s).
+  - Collector: data_collectors/sec_form4_collector.py
+  - Flow: ticker→CIK (company_tickers.json) → submissions/CIK.json (form=='4', last 30d) →
+    fetch ownership XML (raw doc = primaryDocument minus xslF345X##/ prefix) → parse
+    nonDerivativeTable transactions
+  - Mapping: code P→BUY, S→SELL, else raw code (M/F/A/G/X/...); person_category from
+    Director/Officer:title/10% Owner; price NULL for grants/exercises
+  - Table: insider_trades, source='sec_form4' — 377 rows, 27 stocks (30-day backfill)
+  - Dagster asset: us_insider_trades (us_daily group)
 
 - [ ] US news sentiment
   - Source: Same RSS pipeline + FinBERT (already multi-market ready)
