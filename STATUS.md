@@ -23,10 +23,14 @@
 - All three wired into `nse_macro_indicators` Dagster asset (nse_weekly group)
 - No rate limits hit this session.
 
+### Docker rebuild — ✅ DONE
+- `docker compose up --build` completed (exit 0). All 4 containers up: dagster_user_code,
+  dagster_webserver, dagster_daemon, dagster_db.
+- Image now python:3.10.20. Verified inside container: fastmcp 3.4.2, openpyxl 3.1.5, playwright,
+  OpenSSL all import; Dagster code server loaded repository.py with no errors; all three macro
+  collectors import OK. The macro collectors now run inside the Dagster Docker stack.
+
 ### Next Actions
-- **Docker rebuild needed**: `docker compose up --build` (one-time, ~15-20 min) so the running
-  containers pick up `python:3.10-slim` (fastmcp needs 3.10+) + openpyxl. Until then the new macro
-  collectors run only via local venv310, not inside the Dagster Docker stack. docker-compose.yml
-  unchanged (builds from Dockerfile). Code is live-mounted; only deps/base-image need the rebuild.
-- User must add `KITE_USERNAME`, `KITE_PASSWORD`, `KITE_TOTP_SECRET` to `.env` to enable Kite TOTP auto-refresh
+- Kite TOTP auto-refresh: `.env` now has KITE_USERNAME/PASSWORD/TOTP_SECRET (loaded by container) —
+  verify `kite_auth/auto_login.py` end-to-end next session.
 - Next Tier 2 item: RBI monetary policy calendar (manual seed)
