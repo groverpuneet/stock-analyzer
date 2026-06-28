@@ -14,19 +14,24 @@
 
 ## Current Status
 
+### DONE
+- [x] Dagster migration — replacing APScheduler with Dagster assets + jobs
+  - 15 assets across 6 groups, 6 jobs, 6 schedules (IST + EST)
+  - dagster/repository.py, workspace.yaml, docker-compose.yml
+  - Committed: 925834c
+
+- [x] F&O data — India VIX, Put/Call ratio (index/stock/total/FII/DII), futures positioning
+  - Source: NSE allIndices API (VIX) + participant OI archive CSV (PCR)
+  - Table: fno_data — 1 row inserted (2026-06-25)
+  - Dagster asset: nse_fno_data (nse_daily group) + dedicated nse_fno_job (16:45 IST)
+  - Note: Per-strike option chain blocked by NSE JS challenge; max_pain NULL pending browser automation
+
 ### IN PROGRESS
-- [ ] Dagster migration — replacing APScheduler with Dagster assets + jobs
+- None
 
 ---
 
 ## Tier 1 — High signal, NSE market data (do next, in order)
-
-- [ ] F&O data — Put/Call ratio, options OI by strike, total OI
-  - Source: NSE free API (https://www.nseindia.com/api/option-chain-indices)
-  - Table: fno_data (new) — symbol, date, pcr, total_call_oi, total_put_oi, max_pain
-  - Dagster asset: fno_data → feeds into signals
-  - Schedule: Daily 4:45 PM IST (after market close)
-  - No personal data involved
 
 - [ ] Shareholding pattern — promoter %, FII %, DII %, public %
   - Source: NSE quarterly filings API

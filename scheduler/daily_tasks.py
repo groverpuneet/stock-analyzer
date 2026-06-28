@@ -9,6 +9,7 @@ Dagster equivalents for each flag:
   --status          →  python scheduler/daily_tasks.py --status  (still the fastest way)
   --kite-token      →  dagster job execute -f dagster/repository.py --job kite_token_job
   --fii             →  dagster asset materialize -f dagster/repository.py --select nse_fii_dii_flows
+  --fno             →  dagster asset materialize -f dagster/repository.py --select nse_fno_data
   --actions         →  dagster asset materialize -f dagster/repository.py --select nse_corporate_actions
   --screener        →  dagster asset materialize -f dagster/repository.py --select nse_fundamentals
   --macro           →  dagster asset materialize -f dagster/repository.py --select nse_macro_indicators
@@ -27,6 +28,7 @@ Commands:
   python scheduler/daily_tasks.py --status           # show data_refresh_log
   python scheduler/daily_tasks.py --kite-token       # refresh Kite access token
   python scheduler/daily_tasks.py --fii              # run FII/DII only
+  python scheduler/daily_tasks.py --fno              # run F&O data (VIX + PCR)
   python scheduler/daily_tasks.py --actions          # run NSE actions only
   python scheduler/daily_tasks.py --screener         # run screener only
   python scheduler/daily_tasks.py --macro            # run RBI macro only
@@ -47,6 +49,7 @@ from data_collectors.collect_watchlist_data import collect_data
 from analysis.calculate_indicators import process_all_watchlist_stocks
 from analysis.generate_signals import generate_daily_report
 from data_collectors.fii_dii_collector import collect_fii_dii
+from data_collectors.fno_collector import collect_fno_data
 from data_collectors.nse_actions_collector import collect_nse_actions
 from data_collectors.screener_collector import collect_screener_fundamentals
 from utils.db import get_refresh_status, needs_refresh
@@ -105,6 +108,15 @@ def task_fii_dii():
         log.info("=== TASK DONE: FII/DII flows ===")
     except Exception as e:
         log.error(f"=== TASK FAILED: FII/DII flows — {e} ===", exc_info=True)
+
+
+def task_fno():
+    log.info("=== TASK START: F&O data ===")
+    try:
+        result = collect_fno_data()
+        log.info(f"=== TASK DONE: F&O data — {result} ===")
+    except Exception as e:
+        log.error(f"=== TASK FAILED: F&O data — {e} ===", exc_info=True)
 
 
 def task_nse_actions():
@@ -256,6 +268,8 @@ if __name__ == "__main__":
         task_screener()
     elif '--fii' in args:
         task_fii_dii()
+    elif '--fno' in args:
+        task_fno()
     elif '--actions' in args:
         task_nse_actions()
     elif '--macro' in args:
@@ -287,6 +301,7 @@ Manual task flags (for debugging / backfill):
   --status           show data refresh log
   --kite-token       refresh Kite access token
   --fii              FII/DII flows
+  --fno              F&O data (India VIX + PCR from NSE archives)
   --actions          NSE corporate actions
   --screener         Screener.in fundamentals
   --macro            RBI macro indicators

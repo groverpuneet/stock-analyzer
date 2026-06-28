@@ -107,7 +107,21 @@ def nse_news_sentiment(context) -> None:
 
 @asset(
     group_name="nse_daily",
-    deps=[nse_technical_indicators, nse_fii_dii_flows, nse_corporate_actions, nse_news_sentiment],
+    description=(
+        "F&O market-wide data: India VIX, Put/Call Ratio (index/stock/total), "
+        "FII index options positioning and futures OI. "
+        "Source: NSE participant OI archive CSV + allIndices API."
+    ),
+)
+def nse_fno_data(context) -> None:
+    from data_collectors.fno_collector import collect_fno_data
+    result = collect_fno_data()
+    context.log.info(f"F&O data inserted: {result}")
+
+
+@asset(
+    group_name="nse_daily",
+    deps=[nse_technical_indicators, nse_fii_dii_flows, nse_corporate_actions, nse_news_sentiment, nse_fno_data],
     description="BUY/SELL/WATCH signal report. Reads all context data from DB after upstream assets run.",
 )
 def nse_signals(context) -> None:
@@ -217,6 +231,12 @@ nse_monthly_job = define_asset_job(
     description="1st of month: composite scores + FinBERT cache refresh + 52W indicator baselines.",
 )
 
+nse_fno_job = define_asset_job(
+    name="nse_fno_job",
+    selection=AssetSelection.assets("nse_fno_data"),
+    description="F&O daily collection: India VIX + participant OI PCR. Runs at 16:45 IST.",
+)
+
 us_daily_job = define_asset_job(
     name="us_daily_job",
     selection=AssetSelection.groups("us_daily"),
@@ -258,6 +278,14 @@ nse_monthly_schedule = ScheduleDefinition(
     description="Monthly model refresh on the 1st of each month.",
 )
 
+nse_fno_schedule = ScheduleDefinition(
+    name="nse_fno_daily",
+    job=nse_fno_job,
+    cron_schedule="45 16 * * 1-5",    # 16:45 IST Mon-Fri (NSE participant OI CSV published ~16:30)
+    execution_timezone="Asia/Kolkata",
+    description="Daily F&O data: India VIX + PCR (index/FII/total) from NSE archives.",
+)
+
 us_daily_schedule = ScheduleDefinition(
     name="us_daily_market",
     job=us_daily_job,
@@ -279,6 +307,7 @@ defs = Definitions(
         nse_fii_dii_flows,
         nse_corporate_actions,
         nse_news_sentiment,
+        nse_fno_data,
         nse_signals,
         # nse_weekly
         nse_stock_universe,
@@ -294,6 +323,7 @@ defs = Definitions(
     jobs=[
         kite_token_job,
         nse_daily_job,
+        nse_fno_job,
         nse_weekly_job,
         nse_monthly_job,
         us_daily_job,
@@ -301,6 +331,7 @@ defs = Definitions(
     schedules=[
         kite_token_schedule,
         nse_daily_schedule,
+        nse_fno_schedule,
         nse_weekly_schedule,
         nse_monthly_schedule,
         us_daily_schedule,
