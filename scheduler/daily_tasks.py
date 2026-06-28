@@ -18,6 +18,7 @@ Dagster equivalents for each flag:
   --insider         →  dagster asset materialize -f dagster/repository.py --select nse_insider_trades
   --news            →  dagster asset materialize -f dagster/repository.py --select nse_news_sentiment
   --shareholding    →  dagster asset materialize -f dagster/repository.py --select nse_shareholding_pattern
+  --google-trends   →  dagster asset materialize -f dagster/repository.py --select google_trends
   --expand-universe →  dagster asset materialize -f dagster/repository.py --select nse_stock_universe
   --model-refresh   →  dagster job execute -f dagster/repository.py --job nse_monthly_job
   --daily           →  dagster job execute -f dagster/repository.py --job nse_daily_job
@@ -226,6 +227,19 @@ def task_shareholding():
         log.error(f"=== TASK FAILED: Shareholding — {e} ===", exc_info=True)
 
 
+def task_google_trends():
+    log.info("=== TASK START: Google Trends ===")
+    if not needs_refresh('google_trends', min_hours=6 * 24):
+        log.info("Google Trends: skipping — ran within last 6 days")
+        return
+    try:
+        from data_collectors.google_trends_collector import collect_google_trends
+        result = collect_google_trends()
+        log.info(f"=== TASK DONE: Google Trends — {result} ===")
+    except Exception as e:
+        log.error(f"=== TASK FAILED: Google Trends — {e} ===", exc_info=True)
+
+
 def task_expand_universe():
     log.info("=== TASK START: Expand stock universe ===")
     if not needs_refresh('stock_universe', min_hours=6 * 24):
@@ -266,6 +280,7 @@ def run_weekly_pipeline():
     task_screener()
     task_rbi_macro()
     task_insider_bulk()
+    task_google_trends()
     log.info("Weekly pipeline complete")
 
 
@@ -321,6 +336,8 @@ if __name__ == "__main__":
         task_rbi_macro()
     elif '--shareholding' in args:
         task_shareholding()
+    elif '--google-trends' in args:
+        task_google_trends()
     elif '--expand-universe' in args:
         task_expand_universe()
     elif '--insider' in args:
@@ -356,6 +373,7 @@ Manual task flags (for debugging / backfill):
   --macro            RBI macro indicators
   --insider          insider trades + bulk deals
   --shareholding     shareholding pattern (promoter/FII/DII/public %)
+  --google-trends    Google Search interest (pytrends, weekly)
   --news             news sentiment (FinBERT)
   --expand-universe  sync full NSE EQ instrument list
   --model-refresh    monthly model refresh
