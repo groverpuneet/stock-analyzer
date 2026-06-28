@@ -5,6 +5,8 @@ import StockDetail from "./pages/StockDetail";
 import Macro from "./pages/Macro";
 import Watchlist from "./pages/Watchlist";
 import Opportunities from "./pages/Opportunities";
+import SmartMoney from "./pages/SmartMoney";
+import RiskAlerts from "./pages/RiskAlerts";
 import DataSources from "./pages/DataSources";
 import RefreshStatus from "./pages/RefreshStatus";
 import RawDataIndex from "./pages/RawDataIndex";
@@ -14,11 +16,13 @@ import DataHealth from "./components/DataHealth";
 
 const nav = [
   { to: "/", label: "Signals", end: true },
+  { to: "/opportunities", label: "Opportunities" },
+  { to: "/smart-money", label: "Smart Money" },
+  { to: "/risk-alerts", label: "Risk Alerts" },
   { to: "/macro", label: "Macro" },
   { to: "/watchlist", label: "Watchlist" },
-  { to: "/opportunities", label: "Opportunities" },
   { to: "/data-sources", label: "Data Sources" },
-  { to: "/refresh-status", label: "Refresh Status" },
+  { to: "/refresh-status", label: "Refresh" },
 ];
 
 // Raw Data submenu categories
@@ -99,7 +103,7 @@ export default function App() {
   const [rawDataOpen, setRawDataOpen] = useState(loc.pathname.startsWith("/data"));
 
   return (
-    <div className="min-h-full flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       <header className="sticky top-0 z-40 bg-ink/90 backdrop-blur border-b border-edge">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-4">
           <div className="font-bold text-slate-100 whitespace-nowrap">📈 Stock Analyzer</div>
@@ -118,8 +122,9 @@ export default function App() {
                 {n.label}
               </NavLink>
             ))}
-            {/* Raw Data dropdown */}
-            <div className="relative">
+          </nav>
+          {/* Raw Data dropdown - outside nav to avoid overflow clipping */}
+          <div className="relative">
               <button
                 onClick={() => setRawDataOpen(!rawDataOpen)}
                 className={`px-3 py-1.5 rounded-md text-sm whitespace-nowrap flex items-center gap-1 ${
@@ -132,7 +137,7 @@ export default function App() {
                 </svg>
               </button>
               {rawDataOpen && (
-                <div className="absolute left-0 top-full mt-1 w-[600px] bg-ink border border-edge rounded-lg shadow-xl z-50 p-4 grid grid-cols-4 gap-4">
+                <div className="absolute right-0 top-full mt-1 w-[90vw] max-w-4xl bg-ink border border-edge rounded-lg shadow-xl z-50 p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
                   {rawDataCategories.map((cat) => (
                     <div key={cat.title}>
                       <div className="text-xs font-semibold text-slate-500 uppercase mb-2">{cat.title}</div>
@@ -150,7 +155,7 @@ export default function App() {
                       ))}
                     </div>
                   ))}
-                  <div className="col-span-4 border-t border-edge pt-3 mt-2">
+                  <div className="col-span-full border-t border-edge pt-3 mt-2">
                     <NavLink
                       to="/data"
                       onClick={() => setRawDataOpen(false)}
@@ -162,18 +167,19 @@ export default function App() {
                 </div>
               )}
             </div>
-          </nav>
           <DataHealth />
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+      <main className="flex-1 w-full px-4 py-4 overflow-auto">
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/stock/:id" element={<StockDetail />} />
           <Route path="/macro" element={<Macro />} />
           <Route path="/watchlist" element={<Watchlist />} />
           <Route path="/opportunities" element={<Opportunities />} />
+          <Route path="/smart-money" element={<SmartMoney />} />
+          <Route path="/risk-alerts" element={<RiskAlerts />} />
           <Route path="/data-sources" element={<DataSources />} />
           <Route path="/refresh-status" element={<RefreshStatus />} />
           <Route path="/data" element={<RawDataIndex />} />

@@ -36,13 +36,39 @@ function Gauge({ score }: { score: number | null }) {
 
 function Market({ title, m, onExpand }: { title: string; m: FearGreedMarket; onExpand: () => void }) {
   const last7 = m.history.slice(-7);
+  const yesterday = m.history.length >= 2 ? m.history[m.history.length - 2]?.value : null;
+  const change = m.score != null && yesterday != null ? m.score - yesterday : null;
+  const arrow = change == null ? "" : change > 1 ? "↑" : change < -1 ? "↓" : "→";
+  const arrowColor = change == null ? "" : change > 1 ? "text-buy" : change < -1 ? "text-sell" : "text-slate-400";
+
+  // Format date as "28-Jun"
+  const formatDate = (d: string | null) => {
+    if (!d) return "—";
+    const dt = new Date(d);
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${dt.getDate()}-${months[dt.getMonth()]}`;
+  };
+
   return (
     <button onClick={onExpand}
       className="flex-1 flex flex-col items-center rounded-lg border border-edge px-3 py-2 hover:border-indigo-500/50 transition-colors"
       title="Click for 30-day chart">
       <div className="text-xs text-slate-400">{title}</div>
       <Gauge score={m.score} />
-      <div className="text-xs font-medium" style={{ color: fgColor(m.score) }}>{m.rating ?? "—"}</div>
+      <div className="flex items-center gap-1">
+        <span className="text-xs font-medium" style={{ color: fgColor(m.score) }}>{m.rating ?? "—"}</span>
+        {arrow && <span className={`text-xs font-bold ${arrowColor}`}>{arrow}</span>}
+      </div>
+      {/* Yesterday's value */}
+      {yesterday != null && (
+        <div className="text-[10px] text-slate-500">
+          Yesterday: {Math.round(yesterday)}
+        </div>
+      )}
+      {/* Last updated date */}
+      <div className="text-[10px] text-slate-500 mt-0.5">
+        Updated: {formatDate(m.date)}
+      </div>
       {/* 7-day sparkline trend */}
       {last7.length > 1 && (
         <div className="flex items-end gap-0.5 h-6 mt-1">
