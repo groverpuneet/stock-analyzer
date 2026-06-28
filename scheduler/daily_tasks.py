@@ -11,6 +11,7 @@ Dagster equivalents for each flag:
   --fii             →  dagster asset materialize -f dagster/repository.py --select nse_fii_dii_flows
   --fno             →  dagster asset materialize -f dagster/repository.py --select nse_fno_data
   --block-deals     →  dagster asset materialize -f dagster/repository.py --select nse_block_deals
+  --bse-bulk        →  dagster asset materialize -f dagster/repository.py --select bse_bulk_deals
   --actions         →  dagster asset materialize -f dagster/repository.py --select nse_corporate_actions
   --screener        →  dagster asset materialize -f dagster/repository.py --select nse_fundamentals
   --macro           →  dagster asset materialize -f dagster/repository.py --select nse_macro_indicators
@@ -31,6 +32,8 @@ Commands:
   python scheduler/daily_tasks.py --kite-token       # refresh Kite access token
   python scheduler/daily_tasks.py --fii              # run FII/DII only
   python scheduler/daily_tasks.py --fno              # run F&O data (VIX + PCR)
+  python scheduler/daily_tasks.py --block-deals      # NSE block deals only
+  python scheduler/daily_tasks.py --bse-bulk         # BSE/NSE bulk + block deals (NSE archive fallback)
   python scheduler/daily_tasks.py --actions          # run NSE actions only
   python scheduler/daily_tasks.py --screener         # run screener only
   python scheduler/daily_tasks.py --macro            # run RBI macro only
@@ -131,6 +134,17 @@ def task_block_deals():
         log.info(f"=== TASK DONE: Block deals — {stored} rows ===")
     except Exception as e:
         log.error(f"=== TASK FAILED: Block deals — {e} ===", exc_info=True)
+
+
+def task_bse_bulk():
+    log.info("=== TASK START: BSE/NSE bulk + block deals ===")
+    try:
+        from data_collectors.insider_bulk_collector import collect_bulk_deals, collect_block_deals as _collect_block
+        n_bulk = collect_bulk_deals(days=7)
+        n_block = _collect_block(days=7)
+        log.info(f"=== TASK DONE: BSE/NSE deals — {n_bulk} bulk + {n_block} block rows ===")
+    except Exception as e:
+        log.error(f"=== TASK FAILED: BSE/NSE bulk+block — {e} ===", exc_info=True)
 
 
 def task_nse_actions():
@@ -299,6 +313,8 @@ if __name__ == "__main__":
         task_fno()
     elif '--block-deals' in args:
         task_block_deals()
+    elif '--bse-bulk' in args:
+        task_bse_bulk()
     elif '--actions' in args:
         task_nse_actions()
     elif '--macro' in args:
@@ -334,6 +350,7 @@ Manual task flags (for debugging / backfill):
   --fii              FII/DII flows
   --fno              F&O data (India VIX + PCR from NSE archives)
   --block-deals      NSE block deals (large negotiated trades)
+  --bse-bulk         BSE/NSE bulk + block deals (NSE archive fallback; BSE API JS-blocked)
   --actions          NSE corporate actions
   --screener         Screener.in fundamentals
   --macro            RBI macro indicators
