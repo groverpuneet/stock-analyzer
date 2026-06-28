@@ -401,6 +401,22 @@ finds Default-watchlist **NSE** stocks with no `daily_prices` in 30 days that ar
 nse_news_job`. MF instruments (NAV, not OHLCV) are excluded so they don't fire forever.
 One-off backfill of stale watchlist prices: `data_collectors/backfill_watchlist_prices.py`.
 
+### Historical P/E + valuation percentile
+`data_collectors/screener_pe_history_collector.py` seeds ~10yr **monthly** P/E history per NSE
+watchlist stock from Screener's chart API (`/api/company/{id}/chart/?q=Price to Earning…`), stored
+in `fundamentals` (date, pe_ratio, `source='screener_pe_history'`). It then computes, per stock,
+where current P/E sits within its own 5yr range → `stock_scores.pe_percentile` (migration 0012;
+0 = cheapest, 100 = most expensive). **Use the `screener_pe_history` series consistently** for
+history/percentile — the weekly `screener` top-ratio P/E uses a different earnings basis and would
+skew the comparison. Folded into the weekly `nse_fundamentals` asset so it refreshes automatically.
+
+### Web UI additions
+- `GET /api/dashboard` — every datum per watchlist stock (price/52w, technicals, fundamentals +
+  P/E percentile, sentiment, scores, insider 30d) + market-wide FII/DII. Frontend dashboard is a
+  sortable/filterable table (no sector column in the schema — filters are signal/score/search).
+- `GET /api/stocks/{id}/pe-history` — P/E series + current vs 1yr/5yr avg + p25/p75 zones (chart).
+- `POST /api/refresh/trigger-all` / `trigger-failed` — bulk-launch Dagster assets (deduped).
+
 ---
 
 ## 9. Integrations Roadmap

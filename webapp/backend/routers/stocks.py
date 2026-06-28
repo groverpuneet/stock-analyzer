@@ -1,10 +1,24 @@
 """Stock detail — price history + indicators + news + insider/bulk + shareholding + fundamentals."""
+import statistics
+
 from fastapi import APIRouter, HTTPException
 
 from db import query_all, query_one
 from signals_engine import signal_for_stock
 
 router = APIRouter(prefix="/api/stocks", tags=["stocks"])
+
+
+def _pctl(values: list[float], p: float) -> float | None:
+    """p-th percentile (0-100) by linear interpolation."""
+    if not values:
+        return None
+    xs = sorted(values)
+    if len(xs) == 1:
+        return xs[0]
+    k = (len(xs) - 1) * (p / 100.0)
+    lo, hi = int(k), min(int(k) + 1, len(xs) - 1)
+    return xs[lo] + (xs[hi] - xs[lo]) * (k - lo)
 
 
 @router.get("/search")
@@ -78,4 +92,37 @@ def detail(stock_id: int):
         "insider": insider,
         "shareholding": shareholding,
         "fundamentals": fundamentals,
+    }
+
+
+@router.get("/{stock_id}/pe-history")
+def pe_history(stock_id: int):
+    """Historical P/E series + current vs 1yr/5yr averages + cheap/fair/expensive zones."""
+    rows = query_all(
+        "SELECT date, pe_ratio FROM fundamentals WHERE stock_id = %s "
+        "AND source = 'screener_pe_history' AND pe_ratio IS NOT NULL AND pe_ratio > 0 ORDER BY date",
+        (stock_id,),
+    )
+    series = [{"date": r["date"].isoformat(), "pe": float(r["pe_ratio"])} for r in rows]
+    if not series:
+        return {"series": [], "current": None}
+
+    from datetime import date, timedelta
+    today = date.today()
+    vals = [float(r["pe_ratio"]) for r in rows]
+    vals_1y = [float(r["pe_ratio"]) for r in rows if r["date"] >= today - timedelta(days=365)]
+    vals_5y = [float(r["pe_ratio"]) for r in rows if r["date"] >= today - timedelta(days=365 * 5)] or vals
+    current = vals[-1]
+    below = sum(1 for v in vals_5y if v <= current)
+    return {
+        "series": series,
+        "current": round(current, 2),
+        "avg_1yr": round(statistics.fmean(vals_1y), 2) if vals_1y else None,
+        "avg_5yr": round(statistics.fmean(vals_5y), 2) if vals_5y else None,
+        "median_5yr": round(statistics.median(vals_5y), 2),
+        "p25": round(_pctl(vals_5y, 25), 2),   # cheap/fair boundary
+        "p75": round(_pctl(vals_5y, 75), 2),   # fair/expensive boundary
+        "min_5yr": round(min(vals_5y), 2),
+        "max_5yr": round(max(vals_5y), 2),
+        "percentile": round(100.0 * below / len(vals_5y), 1),
     }
