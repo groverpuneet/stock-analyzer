@@ -3,121 +3,177 @@ import { Link } from "react-router-dom";
 
 interface Holding13F {
   filer_name: string;
+  filer_category: string;
   symbol: string;
-  stock_id: number;
-  shares: number;
-  value_usd: number;
-  change_shares: number;
-  change_pct: number;
-  period_end: string;
+  issuer_name: string;
+  shares_held: number;
+  market_value_usd: number;
+  pct_of_portfolio: number;
+  qoq_change_shares: number;
+  qoq_change_pct: number;
+  quarter: string;
+  filing_date: string;
 }
 
 interface SASTRow {
-  symbol: string;
   stock_id: number;
-  acquirer: string;
-  transaction_type: string;
+  symbol: string;
+  acquirer_name: string;
+  acquirer_type: string;
   shares_acquired: number;
+  pct_acquired: number;
   total_holding_pct: number;
-  date: string;
+  acquisition_date: string;
+  disclosure_date: string;
+  transaction_type: string;
 }
 
-interface DIIRow {
-  symbol: string;
+interface InsiderTrade {
   stock_id: number;
+  symbol: string;
+  exchange: string;
+  date: string;
+  person_name: string;
+  person_category: string;
+  transaction: string;
+  quantity: number;
+  price: number;
+  source: string;
+}
+
+interface DIITrend {
+  stock_id: number;
+  symbol: string;
+  quarter_end: string;
   dii_pct: number;
   prev_dii_pct: number;
   change_pct: number;
-  quarter_end: string;
+}
+
+interface InsiderCluster {
+  stock_id: number;
+  symbol: string;
+  exchange: string;
+  trade_count: number;
+  buy_count: number;
+  sell_count: number;
+  total_value: number;
+  latest_date: string;
 }
 
 export default function SmartMoney() {
-  const [tab, setTab] = useState<"13f" | "sast" | "dii">("13f");
+  const [market, setMarket] = useState<"us" | "india">("us");
+  const [tab, setTab] = useState<string>("13f");
   const [holdings, setHoldings] = useState<Holding13F[]>([]);
   const [sast, setSast] = useState<SASTRow[]>([]);
-  const [dii, setDii] = useState<DIIRow[]>([]);
+  const [insiderTrades, setInsiderTrades] = useState<InsiderTrade[]>([]);
+  const [diiTrends, setDiiTrends] = useState<DIITrend[]>([]);
+  const [insiderClusters, setInsiderClusters] = useState<InsiderCluster[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"buy" | "sell" | "all">("all");
 
+  // Set default tab when market changes
+  useEffect(() => {
+    if (market === "us") setTab("13f");
+    else setTab("sast");
+  }, [market]);
+
   useEffect(() => {
     setLoading(true);
-    Promise.all([
-      fetch("/api/data/institutional_holdings_13f?per_page=100&sort_by=period_end&sort_dir=desc").then(r => r.json()),
-      fetch("/api/data/sast_disclosures?per_page=100&sort_by=date&sort_dir=desc").then(r => r.json()),
-      fetch("/api/data/mf_stock_holdings?per_page=100&sort_by=month&sort_dir=desc").then(r => r.json()),
-    ]).then(([h, s, d]) => {
-      // Process 13F holdings
-      const holdingsData: Holding13F[] = h.data.map((r: any) => ({
-        filer_name: r.filer_name,
-        symbol: r.symbol,
-        stock_id: r.stock_id,
-        shares: r.shares,
-        value_usd: r.value_usd,
-        change_shares: r.change_shares || 0,
-        change_pct: r.change_shares && r.shares ? (r.change_shares / (r.shares - r.change_shares)) * 100 : 0,
-        period_end: r.period_end,
-      }));
-      setHoldings(holdingsData);
+    const fetches = market === "us"
+      ? [
+          fetch("/api/smart-money/13f?limit=100").then(r => r.json()),
+          fetch("/api/smart-money/insider?limit=100&market=us").then(r => r.json()),
+        ]
+      : [
+          fetch("/api/smart-money/sast?limit=100").then(r => r.json()),
+          fetch("/api/smart-money/insider?limit=100&market=india").then(r => r.json()),
+          fetch("/api/smart-money/dii-trend?limit=50").then(r => r.json()),
+          fetch("/api/smart-money/insider-clusters?days=30").then(r => r.json()),
+        ];
 
-      // Process SAST
-      const sastData: SASTRow[] = s.data.map((r: any) => ({
-        symbol: r.symbol,
-        stock_id: r.stock_id,
-        acquirer: r.acquirer_name,
-        transaction_type: r.transaction_type,
-        shares_acquired: r.shares_acquired,
-        total_holding_pct: r.total_holding_pct,
-        date: r.date,
-      }));
-      setSast(sastData);
-
-      // Process DII from mf_stock_holdings (using ownership_pct as DII proxy)
-      const diiData: DIIRow[] = d.data
-        .filter((r: any) => r.mom_change_pct !== null)
-        .map((r: any) => ({
-          symbol: r.symbol,
-          stock_id: r.stock_id,
-          dii_pct: r.ownership_pct,
-          prev_dii_pct: r.ownership_pct - (r.mom_change_pct || 0),
-          change_pct: r.mom_change_pct || 0,
-          quarter_end: r.month,
-        }));
-      setDii(diiData);
+    Promise.all(fetches).then((results) => {
+      if (market === "us") {
+        setHoldings(results[0].holdings || []);
+        setInsiderTrades(results[1].trades || []);
+      } else {
+        setSast(results[0].disclosures || []);
+        setInsiderTrades(results[1].trades || []);
+        setDiiTrends(results[2].trends || []);
+        setInsiderClusters(results[3].clusters || []);
+      }
     }).finally(() => setLoading(false));
-  }, []);
+  }, [market]);
 
   const formatNum = (n: number | null, d = 0) => n == null ? "—" : n.toLocaleString("en-US", { maximumFractionDigits: d });
   const formatPct = (n: number | null) => n == null ? "—" : `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
-  const formatDate = (d: string) => {
+  const formatDate = (d: string | null) => {
+    if (!d) return "—";
     const dt = new Date(d);
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     return `${dt.getDate()}-${months[dt.getMonth()]}-${dt.getFullYear()}`;
   };
 
-  // Filter based on buy/sell
+  // Filter holdings
   const filtered13F = holdings.filter(h => {
-    if (filter === "buy") return h.change_shares > 0;
-    if (filter === "sell") return h.change_shares < 0;
+    if (filter === "buy") return (h.qoq_change_shares || 0) > 0;
+    if (filter === "sell") return (h.qoq_change_shares || 0) < 0;
     return true;
   });
 
   const filteredSAST = sast.filter(s => {
-    if (filter === "buy") return s.transaction_type?.toLowerCase().includes("acquisition");
+    if (filter === "buy") return s.transaction_type?.toLowerCase().includes("acquisition") || s.shares_acquired > 0;
     if (filter === "sell") return s.transaction_type?.toLowerCase().includes("disposal");
     return true;
   });
 
-  const filteredDII = dii.filter(d => {
+  const filteredInsider = insiderTrades.filter(t => {
+    if (filter === "buy") return t.transaction === "BUY";
+    if (filter === "sell") return t.transaction === "SELL";
+    return true;
+  });
+
+  const filteredDII = diiTrends.filter(d => {
     if (filter === "buy") return d.change_pct > 0;
     if (filter === "sell") return d.change_pct < 0;
     return true;
   });
 
+  const usTabs = [
+    { key: "13f", label: "SEC 13F Holdings" },
+    { key: "insider", label: "Insider Trades" },
+  ];
+
+  const indiaTabs = [
+    { key: "sast", label: "SAST Disclosures" },
+    { key: "insider", label: "Insider Trades" },
+    { key: "dii", label: "DII Trend" },
+    { key: "clusters", label: "Insider Clusters" },
+  ];
+
+  const tabs = market === "us" ? usTabs : indiaTabs;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <h1 className="text-xl font-semibold text-slate-100">Smart Money</h1>
         <div className="flex gap-2">
+          {/* Market toggle */}
+          <div className="flex rounded overflow-hidden border border-slate-600">
+            <button
+              onClick={() => setMarket("us")}
+              className={`px-3 py-1.5 text-sm ${market === "us" ? "bg-blue-600 text-white" : "bg-edge text-slate-400"}`}
+            >
+              🇺🇸 US
+            </button>
+            <button
+              onClick={() => setMarket("india")}
+              className={`px-3 py-1.5 text-sm ${market === "india" ? "bg-blue-600 text-white" : "bg-edge text-slate-400"}`}
+            >
+              🇮🇳 India
+            </button>
+          </div>
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value as any)}
@@ -132,14 +188,10 @@ export default function SmartMoney() {
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-edge">
-        {[
-          { key: "13f", label: "SEC 13F Holdings (US)" },
-          { key: "sast", label: "SAST Disclosures (India)" },
-          { key: "dii", label: "DII Accumulation" },
-        ].map(t => (
+        {tabs.map(t => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key as any)}
+            onClick={() => setTab(t.key)}
             className={`px-4 py-2 text-sm ${tab === t.key ? "text-blue-400 border-b-2 border-blue-400" : "text-slate-400"}`}
           >
             {t.label}
@@ -149,105 +201,190 @@ export default function SmartMoney() {
 
       {loading ? (
         <div className="text-center py-12 text-slate-400">Loading...</div>
-      ) : tab === "13f" ? (
-        <div className="overflow-x-auto">
-          {filtered13F.length === 0 ? (
-            <div className="text-center py-12 text-slate-400">No 13F data available</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-edge text-slate-300">
-                <tr>
-                  <th className="px-3 py-2 text-left">Fund</th>
-                  <th className="px-3 py-2 text-left">Symbol</th>
-                  <th className="px-3 py-2 text-right">Shares</th>
-                  <th className="px-3 py-2 text-right">Value ($M)</th>
-                  <th className="px-3 py-2 text-right">Change</th>
-                  <th className="px-3 py-2 text-left">Period</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered13F.slice(0, 50).map((h, i) => (
-                  <tr key={i} className="border-t border-edge hover:bg-edge/50">
-                    <td className="px-3 py-2">{h.filer_name}</td>
-                    <td className="px-3 py-2">
-                      <Link to={`/stock/${h.stock_id}`} className="text-blue-400 hover:underline">{h.symbol}</Link>
-                    </td>
-                    <td className="px-3 py-2 text-right">{formatNum(h.shares)}</td>
-                    <td className="px-3 py-2 text-right">{formatNum(h.value_usd / 1_000_000, 1)}</td>
-                    <td className={`px-3 py-2 text-right ${h.change_shares > 0 ? "text-buy" : h.change_shares < 0 ? "text-sell" : ""}`}>
-                      {formatPct(h.change_pct)}
-                    </td>
-                    <td className="px-3 py-2 text-slate-400">{formatDate(h.period_end)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      ) : tab === "sast" ? (
-        <div className="overflow-x-auto">
-          {filteredSAST.length === 0 ? (
-            <div className="text-center py-12 text-slate-400">No SAST disclosures available</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-edge text-slate-300">
-                <tr>
-                  <th className="px-3 py-2 text-left">Symbol</th>
-                  <th className="px-3 py-2 text-left">Acquirer</th>
-                  <th className="px-3 py-2 text-left">Type</th>
-                  <th className="px-3 py-2 text-right">Shares</th>
-                  <th className="px-3 py-2 text-right">Total %</th>
-                  <th className="px-3 py-2 text-left">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSAST.slice(0, 50).map((s, i) => (
-                  <tr key={i} className="border-t border-edge hover:bg-edge/50">
-                    <td className="px-3 py-2">
-                      <Link to={`/stock/${s.stock_id}`} className="text-blue-400 hover:underline">{s.symbol}</Link>
-                    </td>
-                    <td className="px-3 py-2">{s.acquirer}</td>
-                    <td className="px-3 py-2">{s.transaction_type}</td>
-                    <td className="px-3 py-2 text-right">{formatNum(s.shares_acquired)}</td>
-                    <td className="px-3 py-2 text-right">{s.total_holding_pct?.toFixed(2)}%</td>
-                    <td className="px-3 py-2 text-slate-400">{formatDate(s.date)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
       ) : (
         <div className="overflow-x-auto">
-          {filteredDII.length === 0 ? (
-            <div className="text-center py-12 text-slate-400">No DII accumulation data available</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-edge text-slate-300">
-                <tr>
-                  <th className="px-3 py-2 text-left">Symbol</th>
-                  <th className="px-3 py-2 text-right">DII %</th>
-                  <th className="px-3 py-2 text-right">Prev %</th>
-                  <th className="px-3 py-2 text-right">Change</th>
-                  <th className="px-3 py-2 text-left">Quarter</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredDII.slice(0, 50).map((d, i) => (
-                  <tr key={i} className="border-t border-edge hover:bg-edge/50">
-                    <td className="px-3 py-2">
-                      <Link to={`/stock/${d.stock_id}`} className="text-blue-400 hover:underline">{d.symbol}</Link>
-                    </td>
-                    <td className="px-3 py-2 text-right">{d.dii_pct?.toFixed(1)}%</td>
-                    <td className="px-3 py-2 text-right">{d.prev_dii_pct?.toFixed(1)}%</td>
-                    <td className={`px-3 py-2 text-right ${d.change_pct > 0 ? "text-buy" : d.change_pct < 0 ? "text-sell" : ""}`}>
-                      {formatPct(d.change_pct)}
-                    </td>
-                    <td className="px-3 py-2 text-slate-400">{formatDate(d.quarter_end)}</td>
+          {/* 13F Holdings (US) */}
+          {tab === "13f" && market === "us" && (
+            filtered13F.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">No 13F data available</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-edge text-slate-300">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Fund</th>
+                    <th className="px-3 py-2 text-left">Category</th>
+                    <th className="px-3 py-2 text-left">Symbol</th>
+                    <th className="px-3 py-2 text-right">Shares</th>
+                    <th className="px-3 py-2 text-right">Value ($M)</th>
+                    <th className="px-3 py-2 text-right">% Portfolio</th>
+                    <th className="px-3 py-2 text-right">QoQ Change</th>
+                    <th className="px-3 py-2 text-left">Quarter</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filtered13F.slice(0, 100).map((h, i) => (
+                    <tr key={i} className="border-t border-edge hover:bg-edge/50">
+                      <td className="px-3 py-2 font-medium">{h.filer_name}</td>
+                      <td className="px-3 py-2 text-slate-400">{h.filer_category}</td>
+                      <td className="px-3 py-2 text-blue-400">{h.symbol}</td>
+                      <td className="px-3 py-2 text-right">{formatNum(h.shares_held)}</td>
+                      <td className="px-3 py-2 text-right">{formatNum(h.market_value_usd / 1_000_000, 1)}</td>
+                      <td className="px-3 py-2 text-right">{h.pct_of_portfolio?.toFixed(2)}%</td>
+                      <td className={`px-3 py-2 text-right ${(h.qoq_change_pct || 0) > 0 ? "text-buy" : (h.qoq_change_pct || 0) < 0 ? "text-sell" : ""}`}>
+                        {formatPct(h.qoq_change_pct)}
+                      </td>
+                      <td className="px-3 py-2 text-slate-400">{h.quarter}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+          )}
+
+          {/* SAST (India) */}
+          {tab === "sast" && market === "india" && (
+            filteredSAST.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">No SAST disclosures available</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-edge text-slate-300">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Symbol</th>
+                    <th className="px-3 py-2 text-left">Acquirer</th>
+                    <th className="px-3 py-2 text-left">Type</th>
+                    <th className="px-3 py-2 text-right">Shares</th>
+                    <th className="px-3 py-2 text-right">% Acquired</th>
+                    <th className="px-3 py-2 text-right">Total %</th>
+                    <th className="px-3 py-2 text-left">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSAST.slice(0, 100).map((s, i) => (
+                    <tr key={i} className="border-t border-edge hover:bg-edge/50">
+                      <td className="px-3 py-2">
+                        {s.stock_id ? (
+                          <Link to={`/stock/${s.stock_id}`} className="text-blue-400 hover:underline">{s.symbol}</Link>
+                        ) : s.symbol}
+                      </td>
+                      <td className="px-3 py-2">{s.acquirer_name}</td>
+                      <td className="px-3 py-2 text-slate-400">{s.acquirer_type}</td>
+                      <td className="px-3 py-2 text-right">{formatNum(s.shares_acquired)}</td>
+                      <td className="px-3 py-2 text-right">{s.pct_acquired?.toFixed(2)}%</td>
+                      <td className="px-3 py-2 text-right">{s.total_holding_pct?.toFixed(2)}%</td>
+                      <td className="px-3 py-2 text-slate-400">{formatDate(s.acquisition_date || s.disclosure_date)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+          )}
+
+          {/* Insider Trades */}
+          {tab === "insider" && (
+            filteredInsider.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">No insider trades available</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-edge text-slate-300">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Symbol</th>
+                    <th className="px-3 py-2 text-left">Date</th>
+                    <th className="px-3 py-2 text-left">Person</th>
+                    <th className="px-3 py-2 text-left">Role</th>
+                    <th className="px-3 py-2 text-center">Action</th>
+                    <th className="px-3 py-2 text-right">Quantity</th>
+                    <th className="px-3 py-2 text-right">Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredInsider.slice(0, 100).map((t, i) => (
+                    <tr key={i} className="border-t border-edge hover:bg-edge/50">
+                      <td className="px-3 py-2">
+                        {t.stock_id ? (
+                          <Link to={`/stock/${t.stock_id}`} className="text-blue-400 hover:underline">{t.symbol}</Link>
+                        ) : t.symbol}
+                      </td>
+                      <td className="px-3 py-2 text-slate-400">{formatDate(t.date)}</td>
+                      <td className="px-3 py-2">{t.person_name}</td>
+                      <td className="px-3 py-2 text-slate-400">{t.person_category}</td>
+                      <td className={`px-3 py-2 text-center font-medium ${t.transaction === "BUY" ? "text-buy" : t.transaction === "SELL" ? "text-sell" : ""}`}>
+                        {t.transaction}
+                      </td>
+                      <td className="px-3 py-2 text-right">{formatNum(t.quantity)}</td>
+                      <td className="px-3 py-2 text-right">{t.price ? `$${formatNum(t.price, 2)}` : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+          )}
+
+          {/* DII Trend (India) */}
+          {tab === "dii" && market === "india" && (
+            filteredDII.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">No DII trend data available</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-edge text-slate-300">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Symbol</th>
+                    <th className="px-3 py-2 text-right">DII %</th>
+                    <th className="px-3 py-2 text-right">Prev %</th>
+                    <th className="px-3 py-2 text-right">Change</th>
+                    <th className="px-3 py-2 text-left">Quarter</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDII.slice(0, 50).map((d, i) => (
+                    <tr key={i} className="border-t border-edge hover:bg-edge/50">
+                      <td className="px-3 py-2">
+                        <Link to={`/stock/${d.stock_id}`} className="text-blue-400 hover:underline">{d.symbol}</Link>
+                      </td>
+                      <td className="px-3 py-2 text-right">{d.dii_pct?.toFixed(1)}%</td>
+                      <td className="px-3 py-2 text-right">{d.prev_dii_pct?.toFixed(1)}%</td>
+                      <td className={`px-3 py-2 text-right font-medium ${d.change_pct > 0 ? "text-buy" : d.change_pct < 0 ? "text-sell" : ""}`}>
+                        {formatPct(d.change_pct)}
+                      </td>
+                      <td className="px-3 py-2 text-slate-400">{formatDate(d.quarter_end)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+          )}
+
+          {/* Insider Clusters (India) */}
+          {tab === "clusters" && market === "india" && (
+            insiderClusters.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">No insider clusters in last 30 days</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-edge text-slate-300">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Symbol</th>
+                    <th className="px-3 py-2 text-center">Trades</th>
+                    <th className="px-3 py-2 text-center text-buy">Buys</th>
+                    <th className="px-3 py-2 text-center text-sell">Sells</th>
+                    <th className="px-3 py-2 text-right">Total Value</th>
+                    <th className="px-3 py-2 text-left">Latest</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {insiderClusters.map((c, i) => (
+                    <tr key={i} className="border-t border-edge hover:bg-edge/50">
+                      <td className="px-3 py-2">
+                        <Link to={`/stock/${c.stock_id}`} className="text-blue-400 hover:underline">{c.symbol}</Link>
+                      </td>
+                      <td className="px-3 py-2 text-center">{c.trade_count}</td>
+                      <td className="px-3 py-2 text-center text-buy">{c.buy_count}</td>
+                      <td className="px-3 py-2 text-center text-sell">{c.sell_count}</td>
+                      <td className="px-3 py-2 text-right">₹{formatNum(c.total_value / 10_000_000, 1)}Cr</td>
+                      <td className="px-3 py-2 text-slate-400">{formatDate(c.latest_date)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
           )}
         </div>
       )}
