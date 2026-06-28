@@ -71,15 +71,15 @@ def _get_request_token(api_key: str, username: str, password: str, totp_secret: 
 
         # Step 1: user ID + password
         page.fill('input[id="userid"]', username)
-        page.fill('input[id="password"]', password)
+        page.locator('input[id="password"]').type(password, delay=50)
         page.click('button[type="submit"]')
 
         # Step 2: TOTP — wait for the field to appear
-        page.wait_for_selector('input[id="totp"]', timeout=15000)
+        page.wait_for_timeout(3000)
         totp_code = pyotp.TOTP(totp_secret).now()
         log.info("TOTP generated, submitting...")
-        page.fill('input[id="totp"]', totp_code)
-        page.click('button[type="submit"]')
+        page.locator('input').nth(0).type(totp_code, delay=50)
+        page.wait_for_timeout(10000)
 
         # Step 3: capture redirect URL (127.0.0.1 won't load — catch the error)
         try:
