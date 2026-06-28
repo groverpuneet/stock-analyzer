@@ -572,6 +572,28 @@ When using LLM APIs (Claude, etc.) in this project, optimize for minimum token u
 ## MoSPI CPI/IIP note
 - data.gov.in API key broken — superseded by the MoSPI MCP server (see "MoSPI Macro" above; also serves CPI, IIP).
 
+## Tier 3 — US Markets
+
+### US stock universe (migration 0010)
+- 30 NYSE/NASDAQ large/mega caps seeded into `stocks` (market = exchange = 'NYSE'|'NASDAQ').
+- Synthetic `instrument_token = 9_000_000_000 + index` (Kite tokens are < 4e9, so no collision).
+- SEC CIK is resolved at runtime (not stored) via www.sec.gov/files/company_tickers.json.
+- Migration 0010 also seeds data_refresh_log rows: us_prices, fred_macro, sec_form4, us_news.
+
+### FRED US macro (DONE)
+- Source: FRED keyless `fredgraph.csv` download endpoint (no API key, unlike the JSON API).
+- Collector: `data_collectors/fred_macro_collector.py`. Dagster asset `us_macro` (us_weekly group,
+  Sunday 07:00 EST via us_weekly_job).
+- **Fetch crack (important):** FRED is behind Akamai. Python's TLS stack (requests/urllib/httpx,
+  even on OpenSSL 3.6) gets its ClientHello dropped → `RemoteDisconnected`. curl's fingerprint is
+  accepted. Additionally Akamai **tarpits a custom `User-Agent`** on this endpoint (connection hangs,
+  0 bytes received) — so we shell out to curl with its **default UA** and `--http1.1`. curl is already
+  installed in the Dagster image (`dagster/Dockerfile`), so the collector is portable host↔container.
+- Series → indicators (market='US', source='fred'):
+  FEDFUNDS→fed_funds_rate, CPIAUCSL→cpi_index + cpi_inflation_yoy (computed YoY),
+  UNRATE→unemployment_rate, GDPC1→gdp_real + gdp_growth_yoy (computed YoY). ~4yr history, 227 rows.
+- Date convention: FRED observation_date as-is; upsert on (date, market, indicator).
+
 ## TODO: MF Portfolio Holdings
 - AMFI portfolio holdings page is JS-rendered (Next.js) — not scrapable with requests
 - Each AMC publishes monthly holdings on their own website by 10th of month
