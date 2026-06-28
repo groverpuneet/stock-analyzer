@@ -68,3 +68,36 @@ def fii_dii_history(limit: int = 30):
         (limit,),
     )
     return list(reversed(rows))
+
+
+def _fg_rating(score):
+    if score is None:
+        return None
+    return ("Extreme Fear" if score < 25 else "Fear" if score < 45 else
+            "Neutral" if score < 55 else "Greed" if score < 75 else "Extreme Greed")
+
+
+@router.get("/fear-greed")
+def fear_greed(history: int = 30):
+    """India + US Fear & Greed: latest value, rating, and recent history for the chart."""
+    out = {}
+    for key, market, indicator in (("india", "IN", "india_fear_greed_index"),
+                                   ("us", "US", "us_fear_greed_index")):
+        latest = query_one(
+            "SELECT date, value FROM macro_indicators "
+            "WHERE market=%s AND indicator=%s ORDER BY date DESC LIMIT 1",
+            (market, indicator),
+        )
+        rows = query_all(
+            "SELECT date, value FROM macro_indicators "
+            "WHERE market=%s AND indicator=%s ORDER BY date DESC LIMIT %s",
+            (market, indicator, history),
+        )
+        score = float(latest["value"]) if latest and latest["value"] is not None else None
+        out[key] = {
+            "score": score,
+            "rating": _fg_rating(score),
+            "date": latest["date"] if latest else None,
+            "history": list(reversed(rows)),
+        }
+    return out

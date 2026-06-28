@@ -7,8 +7,13 @@ from signals_engine import signal_for_stock
 router = APIRouter(prefix="/api/signals", tags=["signals"])
 
 _WATCHLIST_SQL = """
-    SELECT s.id, s.tradingsymbol, s.name, s.exchange
+    SELECT s.id, s.tradingsymbol, s.name, s.exchange, s.sector, s.industry,
+           sc.data_completeness_score
     FROM watchlist w JOIN stocks s ON w.stock_id = s.id
+    LEFT JOIN LATERAL (
+        SELECT data_completeness_score FROM stock_scores
+        WHERE stock_id = s.id ORDER BY date DESC LIMIT 1
+    ) sc ON true
     WHERE w.name = %s
     ORDER BY s.tradingsymbol
 """
@@ -24,7 +29,9 @@ def list_signals(watchlist: str = "Default", verdict: str | None = None):
         if not sig:
             continue
         row = {"stock_id": s["id"], "symbol": s["tradingsymbol"],
-               "name": s["name"], "exchange": s["exchange"], **sig}
+               "name": s["name"], "exchange": s["exchange"],
+               "sector": s.get("sector"), "industry": s.get("industry"),
+               "completeness": s.get("data_completeness_score"), **sig}
         if verdict and row["verdict"] != verdict.upper():
             continue
         out.append(row)

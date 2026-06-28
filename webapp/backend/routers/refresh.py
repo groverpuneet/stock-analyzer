@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from db import query_all, query_one
+from db import query_all, query_one, get_cursor
 import dagster_client
 
 router = APIRouter(prefix="/api/refresh", tags=["refresh"])
@@ -33,6 +33,8 @@ SOURCE_META: dict[str, dict] = {
     "rbi_dbie": {"provides": "Forex reserves + bank credit (RBI DBIE)", "asset": "nse_macro_indicators"},
     "insider_trades": {"provides": "Insider (SEBI PIT) + bulk deals", "asset": "nse_insider_trades"},
     "google_trends": {"provides": "Google search interest (proxy)", "asset": "nse_google_trends"},
+    "quarterly_financials": {"provides": "Quarterly results, financials & concalls (Screener)", "asset": "nse_quarterly_financials"},
+    "fear_greed": {"provides": "India + US Fear & Greed Index", "asset": "india_fear_greed"},
     "model_refresh": {"provides": "Stock scores + baselines (monthly model)", "asset": "nse_model_refresh"},
     "us_prices": {"provides": "US OHLCV prices", "asset": "us_raw_prices"},
     "sec_form4": {"provides": "US insider trades (SEC Form 4)", "asset": "us_insider_trades"},
@@ -218,6 +220,25 @@ def trigger_failed():
     launched = _launch_sources(names)
     ok = sum(1 for r in launched if r.get("ok"))
     return {"launched": launched, "count": len(launched), "ok": ok}
+
+
+@router.post("/trigger-full")
+def trigger_full():
+    """Force Full Refresh: clear all open data-quality gaps, then re-run every
+    triggerable source so the whole pipeline recomputes from scratch."""
+    cleared = 0
+    with get_cursor(commit=True) as cur:
+        cur.execute(
+            "UPDATE data_quality_log SET resolved_at = now() "
+            "WHERE resolved_at IS NULL RETURNING id"
+        )
+        cleared = cur.rowcount
+        # reset retry counters so the watchdog/quality sensors start clean
+        cur.execute("UPDATE data_refresh_log SET retry_count = 0")
+    triggerable = [s for s, m in SOURCE_META.items() if m.get("asset")]
+    launched = _launch_sources(triggerable)
+    ok = sum(1 for r in launched if r.get("ok"))
+    return {"gaps_cleared": cleared, "launched": launched, "count": len(launched), "ok": ok}
 
 
 @router.get("/run-status")

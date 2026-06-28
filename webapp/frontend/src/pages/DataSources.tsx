@@ -14,12 +14,18 @@ export default function DataSources() {
   }, []);
   useEffect(() => load(), [load]);
 
-  async function bulkRefresh(kind: "all" | "failed") {
+  async function bulkRefresh(kind: "all" | "failed" | "full") {
+    if (kind === "full" && !window.confirm(
+      "Force Full Refresh clears ALL open data-quality gaps and re-runs every collector from scratch. This can take a while. Continue?"
+    )) return;
     setBulkBusy(true);
     setBulk(null);
     try {
-      const res = kind === "all" ? await api.triggerAll() : await api.triggerFailed();
-      setBulk({ kind, msg: `Launched ${res.ok}/${res.count} ${kind === "failed" ? "failed/never-run " : ""}source${res.count === 1 ? "" : "s"}.` });
+      const res = kind === "all" ? await api.triggerAll()
+        : kind === "failed" ? await api.triggerFailed()
+        : await api.triggerFull();
+      const cleared = kind === "full" && res.gaps_cleared != null ? ` Cleared ${res.gaps_cleared} gaps.` : "";
+      setBulk({ kind, msg: `Launched ${res.ok}/${res.count} ${kind === "failed" ? "failed/never-run " : ""}source${res.count === 1 ? "" : "s"}.${cleared}` });
       setTimeout(load, 1500);
     } catch (e) {
       setBulk({ kind, msg: `Failed: ${e}` });
@@ -49,6 +55,10 @@ export default function DataSources() {
           <button onClick={() => bulkRefresh("failed")} disabled={bulkBusy || !d.dagster_healthy}
             className="text-xs font-medium border border-edge text-slate-300 hover:bg-edge/60 rounded-md px-3 py-1 disabled:opacity-40">
             Refresh All Failed
+          </button>
+          <button onClick={() => bulkRefresh("full")} disabled={bulkBusy || !d.dagster_healthy}
+            className="text-xs font-medium border border-sell/50 text-sell hover:bg-sell/10 rounded-md px-3 py-1 disabled:opacity-40">
+            Force Full Refresh
           </button>
           <button onClick={load} className="text-xs text-slate-400 hover:text-slate-200 border border-edge rounded-md px-2.5 py-1">↻ Reload</button>
         </div>

@@ -116,6 +116,23 @@ def nse_google_trends(context) -> None:
 
 @asset(
     group_name="nse_weekly",
+    description=(
+        "Per-stock Screener financials: ~12 quarters of revenue/EBITDA/PAT/EPS into "
+        "quarterly_financials + earnings_calendar, concall transcript links into "
+        "concall_transcripts, and sector/industry onto stocks."
+    ),
+)
+def nse_quarterly_financials(context) -> None:
+    from data_collectors.screener_financials_collector import collect_financials
+    r = collect_financials()
+    context.log.info(
+        f"Financials: {r['quarterly_rows']} quarterly rows across stocks, "
+        f"{r['concalls']} concalls, {r['sectors']} sectors, {len(r['errors'])} errors"
+    )
+
+
+@asset(
+    group_name="nse_weekly",
     deps=[nse_fundamentals, nse_shareholding_pattern],
     description=(
         "Post-run audit: after the weekly pipeline, detect fundamentals/shareholding coverage "

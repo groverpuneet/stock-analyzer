@@ -136,3 +136,18 @@ def nse_daily_audit(context) -> None:
     summary = run_audit("nse_daily")
     context.log.info(f"Daily audit: {summary['gaps']} gaps; "
                      f"{len(summary['completeness']['below_80'])} stocks <80% complete")
+
+
+@asset(
+    group_name="nse_daily",
+    deps=[nse_signals],
+    description=(
+        "India Fear & Greed Index (0-100) computed after the daily pipeline from VIX, "
+        "Put/Call ratio, FII flows, % watchlist above SMA50, % RSI>50, avg news sentiment. "
+        "Stored in macro_indicators (indicator='india_fear_greed_index')."
+    ),
+)
+def india_fear_greed(context) -> None:
+    from data_collectors.fear_greed_collector import compute_india_fear_greed
+    r = compute_india_fear_greed()
+    context.log.info(f"India F&G: {r['score']} ({r['rating']})")

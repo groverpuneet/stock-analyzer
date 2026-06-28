@@ -19,7 +19,8 @@ def _f(v):
 @router.get("")
 def dashboard(watchlist: str = "Default"):
     stocks = query_all(
-        "SELECT s.id, s.tradingsymbol AS symbol, s.name, s.exchange, s.segment "
+        "SELECT s.id, s.tradingsymbol AS symbol, s.name, s.exchange, s.segment, "
+        "s.sector, s.industry "
         "FROM watchlist w JOIN stocks s ON w.stock_id = s.id "
         "WHERE w.name = %s AND s.exchange = 'NSE' ORDER BY s.tradingsymbol",
         (watchlist,),
@@ -113,6 +114,7 @@ def dashboard(watchlist: str = "Default"):
         buys, sells = int(ins.get("buys") or 0), int(ins.get("sells") or 0)
         out.append({
             "stock_id": sid, "symbol": s["symbol"], "name": s["name"],
+            "sector": s.get("sector"), "industry": s.get("industry"),
             "verdict": sig["verdict"] if sig else "NEUTRAL",
             # price
             "close": close, "day_change_pct": day_change,

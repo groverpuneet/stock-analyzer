@@ -29,15 +29,16 @@ from assets.kite_infra import kite_token_refreshed  # noqa: E402
 from assets.nse_daily import (  # noqa: E402
     nse_raw_prices, nse_technical_indicators, nse_fii_dii_flows, nse_corporate_actions,
     nse_news_sentiment, nse_fno_data, nse_block_deals, bse_bulk_deals, nse_signals,
-    nse_daily_audit,
+    nse_daily_audit, india_fear_greed,
 )
 from assets.nse_weekly import (  # noqa: E402
     nse_stock_universe, nse_fundamentals, nse_macro_indicators, nse_insider_trades,
     nse_shareholding_pattern, nse_expiry_calendar, nse_google_trends, nse_weekly_audit,
+    nse_quarterly_financials,
 )
 from assets.nse_monthly import nse_model_refresh  # noqa: E402
 from assets.maintenance import nse_indicator_recompute, nse_gap_fill  # noqa: E402
-from assets.us_daily import us_raw_prices, us_insider_trades, us_signals  # noqa: E402
+from assets.us_daily import us_raw_prices, us_insider_trades, us_signals, us_fear_greed  # noqa: E402
 from assets.us_weekly import us_macro  # noqa: E402
 
 from jobs import ALL_JOBS  # noqa: E402
@@ -51,16 +52,17 @@ defs = Definitions(
         # nse_daily
         nse_raw_prices, nse_technical_indicators, nse_fii_dii_flows, nse_corporate_actions,
         nse_news_sentiment, nse_fno_data, nse_block_deals, bse_bulk_deals, nse_signals,
-        nse_daily_audit,
+        nse_daily_audit, india_fear_greed,
         # nse_weekly
         nse_stock_universe, nse_fundamentals, nse_macro_indicators, nse_insider_trades,
         nse_shareholding_pattern, nse_expiry_calendar, nse_google_trends, nse_weekly_audit,
+        nse_quarterly_financials,
         # nse_monthly
         nse_model_refresh,
         # maintenance
         nse_indicator_recompute, nse_gap_fill,
         # us_daily
-        us_raw_prices, us_insider_trades, us_signals,
+        us_raw_prices, us_insider_trades, us_signals, us_fear_greed,
         # us_weekly
         us_macro,
     ],
