@@ -55,41 +55,43 @@ def _parse_cr(value) -> float:
 def fetch_from_nse(session: requests.Session) -> list:
     """
     Fetch FII/DII data from NSE API.
-    Returns list of dicts with keys: date, fii_buy, fii_sell, fii_net,
-                                             dii_buy, dii_sell, dii_net
+
+    The API returns ONE item per category per day:
+        {"buyValue": "...", "category": "FII/FPI *" | "DII *", "date": "25-Jun-2026",
+         "netValue": "...", "sellValue": "..."}
+    We group by date and merge the FII and DII rows into one record.
     """
     resp = session.get(NSE_FII_URL, timeout=15)
     resp.raise_for_status()
     data = resp.json()
 
-    results = []
+    by_date: dict = {}
     for item in data:
-        try:
-            raw_date = item.get('date') or item.get('Date')
-            parsed_date = _parse_nse_date(raw_date)
-            if not parsed_date:
-                continue
-
-            row = {
-                'date':     parsed_date,
-                'fii_buy':  _parse_cr(item.get('fiiBuy')  or item.get('FII_BUY')),
-                'fii_sell': _parse_cr(item.get('fiiSell') or item.get('FII_SELL')),
-                'fii_net':  _parse_cr(item.get('fiiNet')  or item.get('FII_NET')),
-                'dii_buy':  _parse_cr(item.get('diiBuy')  or item.get('DII_BUY')),
-                'dii_sell': _parse_cr(item.get('diiSell') or item.get('DII_SELL')),
-                'dii_net':  _parse_cr(item.get('diiNet')  or item.get('DII_NET')),
-                'source':   'nse',
-            }
-
-            # Compute net if not provided
-            if row['fii_net'] is None and row['fii_buy'] and row['fii_sell']:
-                row['fii_net'] = row['fii_buy'] - row['fii_sell']
-            if row['dii_net'] is None and row['dii_buy'] and row['dii_sell']:
-                row['dii_net'] = row['dii_buy'] - row['dii_sell']
-
-            results.append(row)
-        except Exception:
+        d = _parse_nse_date(item.get('date') or item.get('Date'))
+        if not d:
             continue
+        cat = (item.get('category') or '').upper()
+        bucket = "FII" if ("FII" in cat or "FPI" in cat) else ("DII" if "DII" in cat else cat)
+        by_date.setdefault(d, {})[bucket] = item
+
+    results = []
+    for d, cats in by_date.items():
+        fii, dii = cats.get("FII"), cats.get("DII")
+        row = {
+            'date':     d,
+            'fii_buy':  _parse_cr(fii.get('buyValue')) if fii else None,
+            'fii_sell': _parse_cr(fii.get('sellValue')) if fii else None,
+            'fii_net':  _parse_cr(fii.get('netValue')) if fii else None,
+            'dii_buy':  _parse_cr(dii.get('buyValue')) if dii else None,
+            'dii_sell': _parse_cr(dii.get('sellValue')) if dii else None,
+            'dii_net':  _parse_cr(dii.get('netValue')) if dii else None,
+            'source':   'nse',
+        }
+        if row['fii_net'] is None and row['fii_buy'] is not None and row['fii_sell'] is not None:
+            row['fii_net'] = round(row['fii_buy'] - row['fii_sell'], 2)
+        if row['dii_net'] is None and row['dii_buy'] is not None and row['dii_sell'] is not None:
+            row['dii_net'] = round(row['dii_buy'] - row['dii_sell'], 2)
+        results.append(row)
 
     return results
 

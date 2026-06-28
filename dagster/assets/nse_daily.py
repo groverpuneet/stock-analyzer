@@ -4,10 +4,23 @@ from dagster import asset
 
 @asset(
     group_name="nse_daily",
-    description="OHLCV daily prices + live quotes for watchlist stocks via Kite Connect.",
+    deps=["kite_token_refreshed"],   # prices need a fresh Kite token (refreshed 08:00 IST)
+    description=(
+        "OHLCV daily prices + live quotes for watchlist stocks via Kite Connect. "
+        "Guards on token validity — if the Kite token is missing/expired the NSE pipeline "
+        "is skipped for the day (logged) rather than crashing downstream assets."
+    ),
 )
 def nse_raw_prices(context) -> None:
-    from data_collectors.collect_watchlist_data import collect_data
+    import os
+    from data_collectors.collect_watchlist_data import collect_data, get_kite_client
+    # Token guard: a cheap validity probe. If it fails, skip the day's NSE pipeline.
+    try:
+        kite = get_kite_client()
+        kite.ltp(["NSE:RELIANCE"])   # lightweight read-only call
+    except Exception as e:  # noqa: BLE001
+        context.log.error(f"Kite token invalid — skipping NSE prices today: {e}")
+        return
     collect_data(watchlist_name="Default", days=5, include_quotes=True)
 
 
