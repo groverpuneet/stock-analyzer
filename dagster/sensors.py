@@ -22,7 +22,9 @@ for _p in (_ROOT, _HERE):
 import psycopg2  # noqa: E402
 from dagster import sensor, RunRequest, SkipReason, DefaultSensorStatus  # noqa: E402
 
-from jobs import nse_daily_job, nse_weekly_job, nse_news_job  # noqa: E402
+from jobs import (  # noqa: E402
+    nse_daily_job, nse_weekly_job, nse_news_job, nse_indicator_recompute_job,
+)
 
 DB_URL = os.environ.get("DATABASE_URL", "postgresql://puneetgrover@localhost/stock_analyzer")
 WATCHLIST = "Default"
@@ -106,4 +108,40 @@ def watchlist_change_sensor(context):
         return SkipReason(f"watchlist_change_sensor error: {e}")
 
 
-ALL_SENSORS = [watchlist_change_sensor]
+@sensor(
+    name="indicator_recompute_sensor",
+    minimum_interval_seconds=300,
+    job=nse_indicator_recompute_job,
+    default_status=DefaultSensorStatus.RUNNING,
+    description=(
+        "Every 5 min: if recompute_queue is non-empty (stocks whose daily_prices changed), "
+        "trigger nse_indicator_recompute_job to recompute their indicators and clear the queue. "
+        "Safety net for prices that land outside the normal daily pipeline."
+    ),
+)
+def indicator_recompute_sensor(context):
+    try:
+        conn = psycopg2.connect(DB_URL)
+    except Exception as e:  # noqa: BLE001
+        return SkipReason(f"DB unreachable: {e}")
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT stock_id FROM recompute_queue ORDER BY stock_id")
+        ids = [r[0] for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+    except Exception as e:  # noqa: BLE001
+        conn.close()
+        return SkipReason(f"indicator_recompute_sensor error: {e}")
+
+    if not ids:
+        return SkipReason("recompute_queue is empty.")
+    # run_key keyed to the queued set — a still-running job (same set) won't re-trigger;
+    # a new set of stocks gets a fresh run.
+    run_key = "recompute-" + ",".join(str(i) for i in ids)
+    context.log.info(f"recompute_queue has {len(ids)} stock(s) — triggering recompute.")
+    return RunRequest(run_key=run_key, tags={"trigger": "indicator_recompute_sensor",
+                                             "queued": str(len(ids))})
+
+
+ALL_SENSORS = [watchlist_change_sensor, indicator_recompute_sensor]

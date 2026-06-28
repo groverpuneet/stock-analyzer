@@ -68,7 +68,14 @@ us_weekly_job = define_asset_job(
     description="US weekly batch: FRED macro indicators (Fed rate, CPI, GDP, unemployment).",
 )
 
+nse_indicator_recompute_job = define_asset_job(
+    name="nse_indicator_recompute_job",
+    selection=AssetSelection.assets("nse_indicator_recompute"),
+    description="Recompute technical indicators for stocks in recompute_queue. Sensor-driven.",
+)
+
 ALL_JOBS = [
     kite_token_job, nse_daily_job, nse_news_job, nse_fno_job, bse_bulk_job,
     nse_weekly_job, nse_monthly_job, us_daily_job, us_weekly_job,
+    nse_indicator_recompute_job,
 ]
