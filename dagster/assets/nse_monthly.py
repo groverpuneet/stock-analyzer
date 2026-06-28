@@ -22,3 +22,16 @@ def nse_model_refresh(context) -> None:
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     mod.run_model_refresh()
+
+
+@asset(
+    group_name="nse_monthly",
+    description=(
+        "MF (DII) ownership per stock from shareholding_pattern. Uses quarterly DII% "
+        "as proxy for MF ownership since detailed AMFI portfolio data requires login. "
+        "Tracks DII changes over time in mf_stock_holdings table."
+    ),
+)
+def nse_mf_holdings(context) -> None:
+    from data_collectors.mf_holdings_collector import collect_mf_holdings
+    collect_mf_holdings(months=24)
