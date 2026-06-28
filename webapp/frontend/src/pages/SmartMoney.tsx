@@ -212,9 +212,10 @@ export default function SmartMoney() {
                 <thead className="bg-edge text-slate-300">
                   <tr>
                     <th className="px-3 py-2 text-left">Fund</th>
-                    <th className="px-3 py-2 text-left">Category</th>
                     <th className="px-3 py-2 text-left">Holding</th>
+                    <th className="px-3 py-2 text-center">Action</th>
                     <th className="px-3 py-2 text-right">Shares</th>
+                    <th className="px-3 py-2 text-right">Price/Share</th>
                     <th className="px-3 py-2 text-right">Value ($M)</th>
                     <th className="px-3 py-2 text-right">% Portfolio</th>
                     <th className="px-3 py-2 text-right">QoQ Change</th>
@@ -222,23 +223,30 @@ export default function SmartMoney() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered13F.slice(0, 100).map((h, i) => (
-                    <tr key={i} className="border-t border-edge hover:bg-edge/50">
-                      <td className="px-3 py-2 font-medium">{h.filer_name}</td>
-                      <td className="px-3 py-2 text-slate-400">{h.filer_category}</td>
-                      <td className="px-3 py-2 text-slate-200" title={h.issuer_name}>
-                        {h.symbol || h.issuer_name?.slice(0, 25) || "—"}
-                        {h.issuer_name && h.issuer_name.length > 25 && "..."}
-                      </td>
-                      <td className="px-3 py-2 text-right">{formatNum(h.shares_held)}</td>
-                      <td className="px-3 py-2 text-right">{h.market_value_usd ? formatNum(h.market_value_usd / 1_000_000, 1) : "—"}</td>
-                      <td className="px-3 py-2 text-right">{h.pct_of_portfolio ? `${h.pct_of_portfolio.toFixed(2)}%` : "—"}</td>
-                      <td className={`px-3 py-2 text-right ${(h.qoq_change_pct || 0) > 0 ? "text-buy" : (h.qoq_change_pct || 0) < 0 ? "text-sell" : "text-slate-500"}`}>
-                        {h.qoq_change_pct != null ? formatPct(h.qoq_change_pct) : "—"}
-                      </td>
-                      <td className="px-3 py-2 text-slate-400">{h.quarter}</td>
-                    </tr>
-                  ))}
+                  {filtered13F.slice(0, 100).map((h, i) => {
+                    const action = (h.qoq_change_shares || 0) > 0 ? "BUY" : (h.qoq_change_shares || 0) < 0 ? "SELL" : "HOLD";
+                    const pricePerShare = h.shares_held && h.market_value_usd ? h.market_value_usd / h.shares_held : null;
+                    return (
+                      <tr key={i} className="border-t border-edge hover:bg-edge/50">
+                        <td className="px-3 py-2 font-medium">{h.filer_name}</td>
+                        <td className="px-3 py-2 text-slate-200" title={h.issuer_name}>
+                          {h.symbol || h.issuer_name?.slice(0, 30) || "—"}
+                          {h.issuer_name && h.issuer_name.length > 30 && "..."}
+                        </td>
+                        <td className={`px-3 py-2 text-center font-medium ${action === "BUY" ? "text-buy" : action === "SELL" ? "text-sell" : "text-slate-500"}`}>
+                          {action}
+                        </td>
+                        <td className="px-3 py-2 text-right">{formatNum(h.shares_held)}</td>
+                        <td className="px-3 py-2 text-right">{pricePerShare ? `$${formatNum(pricePerShare, 2)}` : "—"}</td>
+                        <td className="px-3 py-2 text-right">{h.market_value_usd ? formatNum(h.market_value_usd / 1_000_000, 1) : "—"}</td>
+                        <td className="px-3 py-2 text-right">{h.pct_of_portfolio ? `${h.pct_of_portfolio.toFixed(2)}%` : "—"}</td>
+                        <td className={`px-3 py-2 text-right ${(h.qoq_change_pct || 0) > 0 ? "text-buy" : (h.qoq_change_pct || 0) < 0 ? "text-sell" : "text-slate-500"}`}>
+                          {h.qoq_change_pct != null ? formatPct(h.qoq_change_pct) : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-slate-400">{h.quarter}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )
