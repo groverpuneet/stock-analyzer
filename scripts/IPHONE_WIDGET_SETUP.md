@@ -7,12 +7,12 @@ This widget displays India and US Fear & Greed Index scores on your iPhone home 
 - iPhone with iOS 14+
 - Stock Analyzer backend running with Cloudflare Tunnel
 
-## Current Tunnel URL
+## Permanent Tunnel URL
 
-The Cloudflare tunnel URL changes each time the service restarts. Check the current URL:
+The ngrok static domain is permanent and never changes:
 
-```bash
-cat ~/stock-analyzer/logs/tunnel.error.log | grep "trycloudflare.com" | tail -1
+```
+https://avalanche-joining-yin.ngrok-free.dev
 ```
 
 ## Setup Instructions
@@ -27,9 +27,9 @@ https://apps.apple.com/app/scriptable/id1405459188
 1. Open Scriptable
 2. Tap the **+** button in the top right
 3. Paste the contents of `iphone_widget.js`
-4. **Important:** Edit line 7 — replace `YOUR-TUNNEL-URL` with your actual tunnel URL:
+4. The permanent URL is already configured:
    ```javascript
-   const WEBAPP_URL = "https://expiration-event-hindu-updating.trycloudflare.com";
+   const WEBAPP_URL = "https://avalanche-joining-yin.ngrok-free.dev";
    ```
 5. Tap the script name at the top and rename it to "Fear & Greed"
 6. Tap **Done**
@@ -116,11 +116,10 @@ The widget will:
    # If error: launchctl start com.stockanalyzer.backend
    ```
 
-3. **URL changed:** Quick tunnels get new URLs on restart. Get the new URL:
+3. **Check tunnel logs:**
    ```bash
-   cat ~/stock-analyzer/logs/tunnel.error.log | grep "trycloudflare.com" | tail -1
+   tail -20 ~/stock-analyzer/logs/tunnel.error.log
    ```
-   Then update the `WEBAPP_URL` in your Scriptable script.
 
 ### Widget not refreshing
 
@@ -131,24 +130,9 @@ iOS limits widget refresh frequency. The widget requests a 30-minute refresh, bu
 
 To force refresh: tap the widget (if "Run Script" is set) or open Scriptable and run the script manually.
 
-## For a Permanent URL
-
-The quick tunnel URL changes each time cloudflared restarts. For a permanent URL:
-
-1. Sign up for a free Cloudflare account
-2. Create a named tunnel:
-   ```bash
-   cloudflared tunnel login
-   cloudflared tunnel create stock-analyzer
-   ```
-3. Configure DNS (requires a domain you own)
-4. Update the launchd plist to use the named tunnel
-
-See: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/
-
 ## Files
 
 - `iphone_widget.js` — The Scriptable widget code
-- `~/Library/LaunchAgents/com.stockanalyzer.tunnel.plist` — Cloudflare tunnel launchd config
+- `~/Library/LaunchAgents/com.stockanalyzer.tunnel.plist` — ngrok tunnel launchd config
 - `~/stock-analyzer/logs/tunnel.log` — Tunnel output log
-- `~/stock-analyzer/logs/tunnel.error.log` — Tunnel URL and status log
+- `~/stock-analyzer/logs/tunnel.error.log` — Tunnel status log

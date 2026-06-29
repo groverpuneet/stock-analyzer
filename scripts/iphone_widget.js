@@ -4,7 +4,7 @@
 
 // ===== CONFIGURATION =====
 // Replace with your Cloudflare tunnel URL
-const WEBAPP_URL = "https://expiration-event-hindu-updating.trycloudflare.com";
+const WEBAPP_URL = "https://avalanche-joining-yin.ngrok-free.dev";
 // =========================
 
 const API_ENDPOINT = `${WEBAPP_URL}/api/fear-greed`;
