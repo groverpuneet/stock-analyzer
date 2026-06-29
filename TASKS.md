@@ -46,11 +46,23 @@
     earnings 7d, top news, macro snapshot.
   - Rule commands: /start /help /top5 /fear /macro /alerts /earnings /news /signal /fundamentals
     /insider /watchlist — all verified against live DB.
-  - AI queries: Gemini (gemini-1.5-pro) primary → Groq (llama-3.3-70b) fallback → rule-based apology.
+  - AI queries: Gemini (gemini-2.5-flash) primary → Groq (llama-3.3-70b) fallback → rule-based apology.
     Raw REST (no SDKs), context built relevant-rows-only (<2000 tok). Verified graceful fallback.
   - Persistent listener: scripts/com.stockanalyzer.telegram.plist (KeepAlive launchd).
-  - ⚠️ Needs .env keys (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, GEMINI_API_KEY, GROQ_API_KEY) for
-    end-to-end Telegram send/receive — see .env.example + ENGINEERING.md "Telegram Bot".
+
+- [x] Fear & Greed API — dedicated endpoint for widgets (Session G/I)
+  - Endpoint: GET /api/fear-greed — India + US scores, labels, direction, history
+  - iPhone widget: Moved to fear-greed-api repo, deployed to Render
+  - ngrok tunnel running for remote access to local webapp
+
+- [x] Security hardening (Session J)
+  - Auth: bcrypt password hashing + session cookies (24hr expiry)
+  - DB: Read-only stock_reader user for webapp (SELECT only)
+  - Rate limiting: 100 req/min per IP via slowapi
+  - Security headers: HSTS, X-Frame-Options, X-XSS-Protection, etc.
+  - Pre-commit hook: Blocks commits with secret patterns
+  - SQL injection audit: All queries parameterized
+  - Dependency audit: Known vulnerabilities documented (accepted risk)
 
 ### IN PROGRESS
 - None
@@ -190,6 +202,16 @@
 
 ## Tier 4 — Alternative data
 
+- [ ] Intraday alerts via Telegram
+  - Real-time alerts for significant price moves, volume spikes
+  - Requires Kite websocket or polling during market hours
+  - Schedule: Continuous during market hours (9:15 AM - 3:30 PM IST)
+
+- [ ] NAV refresh collector for 18 MFs
+  - Source: mfapi.in or AMFI NAV endpoint
+  - Table: mf_nav (new) or extend mf_holdings
+  - Schedule: Daily after 9:00 PM IST (NAV published by 8:00 PM)
+
 - [ ] Job postings signals — hiring trends as growth proxy
   - Source: Adzuna API (free tier)
   - Table: job_signals (new) — symbol, date, posting_count, yoy_change
@@ -204,6 +226,11 @@
   - Source: Apple App Store + Google Play RSS/API
   - Table: existing news_sentiment with source=app_store
   - Schedule: Weekly
+
+- [ ] US signals computation
+  - Compute composite scores for US stocks (same logic as NSE)
+  - Table: existing signals with market=US
+  - Dagster asset: us_signals (us_daily group)
 
 ---
 
