@@ -42,7 +42,7 @@ TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-pro")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 API = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
@@ -249,7 +249,10 @@ def _ask_gemini(context: str, question: str) -> str | None:
         "system_instruction": {"parts": [{"text": AI_SYSTEM_PROMPT}]},
         "contents": [{"role": "user",
                       "parts": [{"text": f"DATA CONTEXT:\n{context}\n\nQUESTION: {question}"}]}],
-        "generationConfig": {"maxOutputTokens": 800, "temperature": 0.3},
+        # thinkingBudget=0 disables Gemini 2.5 "thinking" so the whole output budget
+        # goes to the visible answer (otherwise short caps get truncated mid-sentence).
+        "generationConfig": {"maxOutputTokens": 800, "temperature": 0.3,
+                             "thinkingConfig": {"thinkingBudget": 0}},
     }
     try:
         r = requests.post(url, json=body, timeout=40)
