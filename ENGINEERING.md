@@ -716,6 +716,64 @@ When using LLM APIs (Claude, etc.) in this project, optimize for minimum token u
   set also stops the "first word of name" heuristic from adding generic keywords ("Bank of America"→"Bank").
 - US headlines land on their RSS published date in news_sentiment (so query a date window, not just today).
 
+## Telegram Bot — Daily Digest + Commands + AI Queries (Session H, DONE)
+
+A Telegram bot with three faces, all reading public market data only (no portfolio/holdings/P&L):
+
+**Files**
+- `data_collectors/context_builder.py` — the single DB data layer. Pure read functions
+  (`get_fear_greed`, `get_top_signals`, `get_macro_snapshot`, `get_risk_alerts`, `get_fii_dii`,
+  `get_upcoming_earnings`, `get_top_news`, `get_signal_detail`, `get_fundamentals`, `get_insider`,
+  `get_watchlist_scores`, `get_13f_holdings`) plus `build_context(query)` which assembles a
+  compact (<~2000 token) relevant-only context block for the AI. `extract_symbols()` resolves
+  tickers mentioned in free text. `get_top_news` dedupes by headline (the proactive news collector
+  can tag one wire story to several tickers).
+- `data_collectors/telegram_bot.py` — Telegram I/O (raw REST via `requests`, long-poll `getUpdates`
+  + `sendMessage`, 4096-char chunking), command router, AI orchestration, and the digest builder.
+- `dagster/assets/notifications.py` — `telegram_daily_digest` asset (notifications group).
+
+**No new dependencies.** Uses `requests` + `python-dotenv` (already installed). Telegram, Gemini,
+and Groq are all called over their plain REST/HTTP APIs — no SDKs — which keeps the image light and
+the token usage minimal (system prompt is terse, context is relevant-rows-only).
+
+**Three faces**
+1. *Daily digest* — `send_daily_digest()` builds and pushes the 08:00 IST morning message
+   (Fear&Greed India/US with ↑/↓ trend, top-5 by composite score, risk alerts, FII/DII, earnings
+   next 7d, top news by |sentiment|, macro VIX/PCR/repo). Pushed by the `telegram_daily_digest`
+   Dagster asset → `telegram_digest_job` → `telegram_digest_daily` schedule (08:00 IST, after
+   `kite_token_job`). Reads already-materialized tables, so it runs after the overnight pipelines.
+2. *Rule commands* (instant, no AI): `/start /help /top5 /fear /macro /alerts /earnings /news`
+   `/signal SBIN /fundamentals SBIN /insider SBIN /watchlist`. Routed in `handle_text()`; each
+   handler is wrapped so a failure returns a friendly message, never a traceback.
+3. *AI queries* — any non-command text. `answer_ai_query()` builds context then asks **Gemini**
+   (`gemini-1.5-pro`, `GEMINI_MODEL` override) first; on 429/quota/error falls back to **Groq**
+   (`llama-3.3-70b-versatile`, `GROQ_MODEL` override); if both unavailable, returns a rule-based
+   apology that still includes the data context so the user always gets something useful.
+
+**Security / privacy**
+- The listener only answers messages from `TELEGRAM_CHAT_ID` (if set) — strangers who find the bot
+  are ignored. The AI system prompt forbids personalised advice / position sizing.
+- All errors are logged to STATUS.md (`log_status()`), never sent raw to Telegram.
+
+**Required `.env` keys** (see `.env.example`): `TELEGRAM_BOT_TOKEN` (BotFather), `TELEGRAM_CHAT_ID`
+(@userinfobot), `GEMINI_API_KEY` (aistudio.google.com), `GROQ_API_KEY` (console.groq.com).
+
+**Run**
+```bash
+# Interactive listener (commands + AI) — long-running process
+venv310/bin/python data_collectors/telegram_bot.py
+# Persistent on Mac: scripts/com.stockanalyzer.telegram.plist (KeepAlive)
+#   cp scripts/com.stockanalyzer.telegram.plist ~/Library/LaunchAgents/ && launchctl load -w ...
+# Preview the digest without sending:
+venv310/bin/python data_collectors/telegram_bot.py --digest
+# Build + send the digest now:
+venv310/bin/python data_collectors/telegram_bot.py --digest --send
+# Inspect the AI context for a query:
+venv310/bin/python data_collectors/context_builder.py "Why is SBIN looking strong?"
+```
+The digest also fires automatically via Dagster:
+`dagster asset materialize -f dagster/repository.py --select telegram_daily_digest`.
+
 ## TODO: MF Portfolio Holdings
 - AMFI portfolio holdings page is JS-rendered (Next.js) — not scrapable with requests
 - Each AMC publishes monthly holdings on their own website by 10th of month

@@ -12,7 +12,7 @@ from dagster import ScheduleDefinition, DefaultScheduleStatus  # noqa: E402
 
 from jobs import (  # noqa: E402  (dagster/jobs.py — dagster dir is first on sys.path)
     kite_token_job, nse_daily_job, nse_weekly_job, nse_monthly_job,
-    nse_fno_job, bse_bulk_job, us_daily_job, us_weekly_job,
+    nse_fno_job, bse_bulk_job, us_daily_job, us_weekly_job, telegram_digest_job,
 )
 
 _RUNNING = DefaultScheduleStatus.RUNNING   # all schedules enabled by default
@@ -98,7 +98,17 @@ us_weekly_schedule = ScheduleDefinition(
     description="Weekly US macro refresh from FRED (Fed rate, CPI, GDP, unemployment).",
 )
 
+telegram_digest_schedule = ScheduleDefinition(
+    name="telegram_digest_daily",
+    job=telegram_digest_job,
+    cron_schedule="0 8 * * *",        # 08:00 IST daily (after kite_token_job at 08:00)
+    execution_timezone="Asia/Kolkata",
+    default_status=_RUNNING,
+    description="Push the morning digest to Telegram every day at 08:00 IST.",
+)
+
 ALL_SCHEDULES = [
     kite_token_schedule, kite_token_retry_schedule, nse_daily_schedule, nse_fno_schedule,
     bse_bulk_schedule, nse_weekly_schedule, nse_monthly_schedule, us_daily_schedule, us_weekly_schedule,
+    telegram_digest_schedule,
 ]

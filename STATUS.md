@@ -64,3 +64,22 @@
 
 ### Watchdog retry — 2026-06-28 20:12
   - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Watchdog retry — 2026-06-28 20:43
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Watchdog retry — 2026-06-28 21:13
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+- [telegram_bot 2026-06-28 23:30] AI query fell through (no Gemini/Groq) for: Why is SBIN looking strong?
+
+### Session H — Telegram bot (2026-06-28)
+- Built `data_collectors/context_builder.py` (DB data layer + AI context builder) and
+  `data_collectors/telegram_bot.py` (rule commands + Gemini→Groq AI fallback + daily digest).
+- Dagster: `telegram_daily_digest` asset (notifications group) → `telegram_digest_job` →
+  `telegram_digest_daily` schedule at 08:00 IST. Definitions validate (35 assets, 13 jobs, 10 schedules).
+- All rule commands + the digest verified against the live DB (no API keys needed for those).
+- AI graceful fallback (no keys) verified — returns the compact data context + an apology.
+- ⚠️ WAITING ON USER: `.env` needs TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (digest + commands),
+  and GEMINI_API_KEY / GROQ_API_KEY (AI queries). End-to-end Telegram send/receive can only be
+  verified once these are added. See ENGINEERING.md "Telegram bot" + .env.example for how to obtain them.
