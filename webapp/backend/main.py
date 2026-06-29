@@ -59,7 +59,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class NgrokHeaderMiddleware(BaseHTTPMiddleware):
+    """Tag responses with the ngrok bypass header so the free-tier interstitial is
+    skipped on API responses reached through the tunnel (e.g. the iPhone widget)."""
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["ngrok-skip-browser-warning"] = "true"
+        return response
+
+
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(NgrokHeaderMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
