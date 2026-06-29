@@ -66,6 +66,8 @@ async function fetchFearGreed() {
   try {
     const req = new Request(API_ENDPOINT);
     req.timeoutInterval = 30;
+    // Skip ngrok browser warning page
+    req.headers = { "ngrok-skip-browser-warning": "true" };
     const data = await req.loadJSON();
     return data;
   } catch (e) {
