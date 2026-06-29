@@ -63,10 +63,23 @@ def resolve_symbol(token: str):
     )
 
 
+# Common English / query words that collide with real tickers (e.g. MOMENTUM is an
+# Aditya Birla ETF). Skip them as symbol candidates so "best momentum stocks" doesn't
+# resolve to a ticker. Stocks still match via the rest of the query.
+STOPWORDS = frozenset({
+    "THE", "AND", "FOR", "WITH", "WHAT", "WHY", "HOW", "WHICH", "WHO", "ARE", "HAS",
+    "HAVE", "BEST", "TOP", "NOW", "RIGHT", "SHOW", "ME", "ANY", "ALL", "RISING",
+    "FALLING", "STRONG", "WEAK", "GOOD", "BAD", "STOCK", "STOCKS", "SHARE", "SHARES",
+    "PRICE", "MOMENTUM", "TREND", "TODAY", "WEEK", "MONTH", "YEAR", "MARKET", "BUY",
+    "SELL", "HOLD", "NEWS", "VIEW", "ABOUT", "FROM", "INTO", "OVER", "THIS", "THAT",
+    "COMPARE", "VERSUS", "VS", "AND", "OR", "GET", "GIVE", "TELL", "LOOK", "LOOKING",
+})
+
+
 def extract_symbols(message: str, limit: int = 4):
     """Find watchlist/known tickers mentioned in a free-text query."""
     cleaned = "".join(c if c.isalnum() or c.isspace() else " " for c in message.upper())
-    words = {w for w in cleaned.split() if len(w) >= 3}
+    words = {w for w in cleaned.split() if len(w) >= 3 and w not in STOPWORDS}
     if not words:
         return []
     hits = _rows(
@@ -373,10 +386,13 @@ def build_context(message: str) -> str:
                 parts.append("  NEWS " + sym + ": " + " | ".join(
                     f"[{n['sentiment']} {_f(n['sentiment_score'])}] {n['headline']}" for n in news))
     else:
-        top = get_top_signals(5)
+        top = get_top_signals(8)
         if top:
-            parts.append("TOP BY SCORE: " + ", ".join(
-                f"{t['symbol']} ({_f(t['composite_score'])})" for t in top))
+            parts.append(
+                "WATCHLIST RANKING (composite & momentum score, 0-100, higher = stronger "
+                "momentum/setup): " + ", ".join(
+                    f"{t['symbol']} composite={_f(t['composite_score'])}"
+                    f" momentum={_f(t.get('momentum_score'))}" for t in top))
 
     low = message.lower()
     if any(name.lower() in low for name in ("berkshire", "buffett", "bridgewater",
