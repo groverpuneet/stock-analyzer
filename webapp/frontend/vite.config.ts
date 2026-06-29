@@ -15,16 +15,29 @@ const proxy = {
   },
 };
 
+// allowedHosts: Vite 5 rejects requests whose Host header isn't in this list with
+// a 403 "Blocked request" page — which is what the ngrok hostname hit. The leading
+// dot allows the domain and any ngrok-free subdomain (future-proofs domain rotation).
+const allowedHosts = ["avalanche-joining-yin.ngrok-free.dev", ".ngrok-free.dev"];
+
+// headers: send the ngrok bypass header so ngrok's free-tier browser interstitial
+// is skipped where it honours a response signal.
+const headers = { "ngrok-skip-browser-warning": "true" };
+
 export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
     port: 5173,
     proxy,
+    allowedHosts,
+    headers,
   },
   preview: {
     host: true,
     port: 5173,
     proxy,
+    allowedHosts,
+    headers,
   },
 });
