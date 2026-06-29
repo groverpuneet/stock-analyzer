@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  ngrok tunnel for the Stock Analyzer webapp.
+
+  Forwards the reserved ngrok-free domain to the Vite frontend on :5173 (NOT the
+  API on :8009). Vite's preview server proxies /api/* to the FastAPI backend on
+  :8009, so the full webapp (frontend + API) is reachable through one tunnel.
+
+  NOTE: Vite must bind IPv4 (host: true in vite.config.ts) — ngrok forwards to
+  127.0.0.1:5173 and Vite's default "localhost" was IPv6-only (::1), which gave
+  the tunnel connection-refused.
+
+  Install / reload (run in your own GUI Terminal, not over SSH, to avoid the
+  launchd "Input/output error"):
+    cp scripts/com.stockanalyzer.tunnel.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.stockanalyzer.tunnel.plist
+  Verify:  curl http://127.0.0.1:4040/api/tunnels   (addr should be http://localhost:5173)
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.stockanalyzer.tunnel</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/ngrok</string>
+        <string>http</string>
+        <string>--url=avalanche-joining-yin.ngrok-free.dev</string>
+        <string>5173</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/puneetgrover/stock-analyzer</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/puneetgrover/stock-analyzer/logs/tunnel.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/puneetgrover/stock-analyzer/logs/tunnel.error.log</string>
+
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+</dict>
+</plist>
