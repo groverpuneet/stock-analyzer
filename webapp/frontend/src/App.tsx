@@ -13,6 +13,15 @@ import RawDataIndex from "./pages/RawDataIndex";
 import RawData from "./pages/RawData";
 import ChatWidget from "./components/ChatWidget";
 import DataHealth from "./components/DataHealth";
+import { auth } from "./api";
+
+async function handleLogout() {
+  try {
+    await auth.logout();
+  } finally {
+    window.location.reload();
+  }
+}
 
 const nav = [
   { to: "/", label: "Signals", end: true },
@@ -168,6 +177,13 @@ export default function App() {
               )}
             </div>
           <DataHealth />
+          <button
+            onClick={handleLogout}
+            title="Sign out"
+            className="px-2 py-1.5 rounded-md text-sm text-slate-400 hover:text-slate-200 whitespace-nowrap"
+          >
+            Sign out
+          </button>
         </div>
       </header>
 

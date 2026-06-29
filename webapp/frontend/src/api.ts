@@ -23,11 +23,49 @@ export interface SignalsResponse {
   counts: Record<Verdict, number>;
 }
 
+// Global 401 handler — AuthGate registers this so any expired/missing session
+// (on any API call) flips the whole app back to the login screen.
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: () => void) {
+  onUnauthorized = fn;
+}
+
+// credentials:"include" so the session cookie rides along (also works cross-origin,
+// e.g. when the same backend is reached directly rather than via the Vite proxy).
 async function get<T>(url: string): Promise<T> {
-  const r = await fetch(url);
+  const r = await fetch(url, { credentials: "include" });
+  if (r.status === 401) {
+    onUnauthorized?.();
+    throw new Error("401 Unauthorized");
+  }
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   return r.json();
 }
+
+export interface AuthStatus {
+  authenticated: boolean;
+  username: string | null;
+}
+
+export const auth = {
+  // public endpoint; auth_enabled tells us whether a login is required at all
+  health: () => get<{ status: string; auth_enabled: boolean }>("/api/health"),
+  status: () => get<AuthStatus>("/api/auth/status"),
+  login: async (username: string, password: string) => {
+    const r = await fetch("/api/auth/login", {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d.detail || `Login failed (${r.status})`);
+    }
+    return r.json() as Promise<{ status: string; username: string }>;
+  },
+  logout: () => fetch("/api/auth/logout", { method: "POST", credentials: "include" }),
+};
 
 interface DataTableParams {
   page?: number;
@@ -65,11 +103,12 @@ export const api = {
   addWatchlist: (stock_id: number, name: string) =>
     fetch("/api/watchlist", {
       method: "POST",
+      credentials: "include",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ stock_id, name }),
     }),
   removeWatchlist: (entryId: number) =>
-    fetch(`/api/watchlist/${entryId}`, { method: "DELETE" }),
+    fetch(`/api/watchlist/${entryId}`, { method: "DELETE", credentials: "include" }),
   opportunities: () => get<any>("/api/opportunities"),
   lastUpdated: (page: string) => get<any>(`/api/refresh/last?page=${page}`),
   refreshSources: () => get<any>("/api/refresh/sources"),
@@ -77,15 +116,16 @@ export const api = {
   trigger: (source: string) =>
     fetch("/api/refresh/trigger", {
       method: "POST",
+      credentials: "include",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ source }),
     }).then((r) => r.json()),
   runStatus: (runId: string) => get<any>(`/api/refresh/run-status?run_id=${runId}`),
   dashboard: () => get<any>("/api/dashboard"),
   peHistory: (id: number) => get<any>(`/api/stocks/${id}/pe-history`),
-  triggerAll: () => fetch("/api/refresh/trigger-all", { method: "POST" }).then((r) => r.json()),
-  triggerFailed: () => fetch("/api/refresh/trigger-failed", { method: "POST" }).then((r) => r.json()),
-  triggerFull: () => fetch("/api/refresh/trigger-full", { method: "POST" }).then((r) => r.json()),
+  triggerAll: () => fetch("/api/refresh/trigger-all", { method: "POST", credentials: "include" }).then((r) => r.json()),
+  triggerFailed: () => fetch("/api/refresh/trigger-failed", { method: "POST", credentials: "include" }).then((r) => r.json()),
+  triggerFull: () => fetch("/api/refresh/trigger-full", { method: "POST", credentials: "include" }).then((r) => r.json()),
   qualityHealth: () => get<any>("/api/quality/health"),
   fearGreed: () => get<FearGreed>("/api/macro/fear-greed"),
   quarterlyResults: (id: number) => get<any>(`/api/stocks/${id}/quarterly-results`),
