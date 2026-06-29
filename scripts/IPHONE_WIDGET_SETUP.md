@@ -65,30 +65,52 @@ The widget will:
 - Auto-refresh approximately every 30 minutes
 - Open the full webapp when tapped
 
+## Visual Gauge Design
+
+The widget displays a **semicircular arc gauge** for each market:
+
+- **Arc fills left-to-right** based on score (0 = empty, 100 = full)
+- **Filled portion** colored by sentiment (red → orange → grey → green)
+- **Unfilled portion** in dark grey
+- **Score number** displayed in center of arc
+- **Direction arrow** (↑↓→) next to score
+- **Label** below arc (Extreme Fear / Fear / Neutral / Greed / Extreme Greed)
+- **Flag emoji** above each gauge
+
 ## Widget Sizes
 
 ### Small Widget
 ```
 ┌─────────────────────┐
-│ 📈 Fear & Greed     │
-│ 🇮🇳 67 Greed ↑      │
-│ 🇺🇸 71 Greed ↑      │
-│ Updated: 2:30 PM    │
+│        🇮🇳          │
+│     ╭───────╮       │
+│    ╱  67 ↑  ╲       │
+│   ╱  Greed   ╲      │
+│                     │
+│     🇺🇸 71 ↑        │
+│       2:30 PM       │
 └─────────────────────┘
 ```
+- India gauge with arc visualization
+- US score shown as compact text below
+- Last refresh time at bottom
 
 ### Medium Widget
 ```
 ┌─────────────────────────────────────────┐
-│ 📈 Fear & Greed Index                   │
+│          Fear & Greed Index             │
 │                                         │
-│ 🇮🇳 India          🇺🇸 US               │
-│ 67 ↑               71 ↑                 │
-│ Greed              Greed                │
+│     🇮🇳              🇺🇸                │
+│   ╭─────╮          ╭─────╮              │
+│  ╱ 67 ↑ ╲        ╱ 71 ↑ ╲              │
+│ ╱ Greed  ╲      ╱ Greed  ╲             │
 │                                         │
 │ Data: 2026-06-28       Updated: 2:30 PM │
 └─────────────────────────────────────────┘
 ```
+- Two gauges side by side (India left, US right)
+- Each with full arc visualization
+- Data date and refresh time at bottom
 
 ## Color Legend
 
