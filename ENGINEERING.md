@@ -782,3 +782,62 @@ The digest also fires automatically via Dagster:
   2. Playwright/Selenium for JS rendering (set up when building UI)
   3. Some AMCs provide direct CSV downloads — could scrape those individually
 - For now track via bulk deals (MF bulk purchases show up there)
+
+## Security (Session J)
+
+### Secret management
+- **Never commit .env or .kite_access_token** — both are in `.gitignore`
+- Use `.env.example` as a template; copy to `.env` and fill in real values
+- Pre-commit hook blocks commits containing secret patterns (sk-ant-, AKIA, ghp_, etc.)
+- Rotate all credentials every 90 days (Kite, Polygon, Groq, Gemini, Telegram)
+
+### Database access
+- **Collectors (read-write):** use `DATABASE_URL` (puneetgrover user)
+- **Webapp (read-only):** use `WEBAPP_DATABASE_URL` (stock_reader user)
+- The stock_reader user has SELECT-only permissions; cannot INSERT/UPDATE/DELETE
+- Create the user:
+  ```sql
+  CREATE USER stock_reader WITH PASSWORD 'yourpassword';
+  GRANT CONNECT ON DATABASE stock_analyzer TO stock_reader;
+  GRANT USAGE ON SCHEMA public TO stock_reader;
+  GRANT SELECT ON ALL TABLES IN SCHEMA public TO stock_reader;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO stock_reader;
+  ```
+
+### Authentication
+- Webapp uses session-based auth with bcrypt password hashing
+- Set `WEBAPP_USERNAME` and `WEBAPP_PASSWORD_HASH` in `.env`
+- Generate hash: `python3 -c "import bcrypt; print(bcrypt.hashpw(b'password', bcrypt.gensalt()).decode())"`
+- Session cookies are signed with `SESSION_SECRET` (itsdangerous)
+- Sessions expire after 24 hours
+
+### Rate limiting
+- All `/api/*` endpoints: max 100 requests/minute per IP (slowapi)
+- Login endpoint: max 10 requests/minute per IP
+- `/api/health` is exempt from rate limiting
+- Returns 429 with Retry-After header when exceeded
+
+### Security headers
+All responses include:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `X-XSS-Protection: 1; mode=block`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Strict-Transport-Security: max-age=31536000` (HTTPS only)
+
+### SQL injection prevention
+- All queries use parameterized statements (`%s` placeholders with psycopg2)
+- Table names in dynamic queries are validated against hardcoded allowlists
+- No f-string SQL with user input
+
+### Pre-commit hook
+Located at `.git/hooks/pre-commit`. Blocks commits containing:
+- API keys (sk-ant-, AKIA, ghp_, gho_, AIza, xoxb-, xoxp-)
+- Hardcoded passwords/secrets (api_key=, password=, secret=, token=)
+Bypass with `git commit --no-verify` (use sparingly)
+
+### Known vulnerabilities (accepted risk)
+- `autobahn==19.11.2` (PYSEC-2020-25): Header injection in websocket redirects.
+  Pinned by kiteconnect; we don't use websocket redirects.
+- `requests==2.32.3` (CVE-2024-47081, CVE-2026-25645): .netrc leak and temp file issue.
+  We don't use .netrc or `extract_zipped_paths()`

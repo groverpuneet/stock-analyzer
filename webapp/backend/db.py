@@ -24,7 +24,8 @@ def _clean_row(row: dict) -> dict:
     return {k: _clean(v) for k, v in row.items()}
 
 DATABASE_URL = os.environ.get(
-    "DATABASE_URL", "postgresql://puneetgrover@localhost/stock_analyzer"
+    "WEBAPP_DATABASE_URL",
+    os.environ.get("DATABASE_URL", "postgresql://puneetgrover@localhost/stock_analyzer")
 )
 
 
