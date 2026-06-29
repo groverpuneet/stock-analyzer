@@ -8,7 +8,12 @@ __pycache__/
 
 # Sensitive files
 .env
+.env.*
 .kite_access_token
+*.pem
+*.key
+credentials.json
+secrets.json
 
 # Database
 *.db

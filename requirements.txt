@@ -35,3 +35,10 @@ dagster
 dagster-webserver
 dagster-postgres
 fastmcp
+
+# Web API (FastAPI backend)
+fastapi
+uvicorn[standard]
+bcrypt
+itsdangerous
+slowapi
