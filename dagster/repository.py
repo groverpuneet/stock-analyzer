@@ -40,6 +40,7 @@ from assets.nse_monthly import nse_model_refresh, nse_mf_holdings  # noqa: E402
 from assets.maintenance import nse_indicator_recompute, nse_gap_fill  # noqa: E402
 from assets.us_daily import us_raw_prices, us_insider_trades, us_signals, us_fear_greed  # noqa: E402
 from assets.us_weekly import us_macro, us_13f_holdings  # noqa: E402
+from assets.notifications import telegram_daily_digest  # noqa: E402
 
 from jobs import ALL_JOBS  # noqa: E402
 from schedules import ALL_SCHEDULES  # noqa: E402
@@ -65,6 +66,8 @@ defs = Definitions(
         us_raw_prices, us_insider_trades, us_signals, us_fear_greed,
         # us_weekly
         us_macro, us_13f_holdings,
+        # notifications
+        telegram_daily_digest,
     ],
     jobs=ALL_JOBS,
     schedules=ALL_SCHEDULES,

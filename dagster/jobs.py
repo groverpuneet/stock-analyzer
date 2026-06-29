@@ -80,8 +80,14 @@ nse_gap_fill_job = define_asset_job(
     description="Targeted fill of open data_quality_log gaps. Driven by data_quality_sensor.",
 )
 
+telegram_digest_job = define_asset_job(
+    name="telegram_digest_job",
+    selection=AssetSelection.groups("notifications"),
+    description="Push the morning Telegram digest at 08:00 IST after the overnight data lands.",
+)
+
 ALL_JOBS = [
     kite_token_job, nse_daily_job, nse_news_job, nse_fno_job, bse_bulk_job,
     nse_weekly_job, nse_monthly_job, us_daily_job, us_weekly_job,
-    nse_indicator_recompute_job, nse_gap_fill_job,
+    nse_indicator_recompute_job, nse_gap_fill_job, telegram_digest_job,
 ]

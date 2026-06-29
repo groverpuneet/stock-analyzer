@@ -39,6 +39,19 @@
   - Lag handling: skips stocks already up to date; ON CONFLICT upsert on new quarter arrival
   - NSE API blocked by JS challenge — Screener.in used as authoritative proxy
 
+- [x] Telegram bot — daily digest + rule commands + AI queries (Session H)
+  - Files: data_collectors/telegram_bot.py + data_collectors/context_builder.py (shared data layer)
+  - Daily digest: telegram_daily_digest Dagster asset (notifications group) → telegram_digest_job →
+    telegram_digest_daily schedule at 08:00 IST. Fear&Greed, top-5 by score, risk alerts, FII/DII,
+    earnings 7d, top news, macro snapshot.
+  - Rule commands: /start /help /top5 /fear /macro /alerts /earnings /news /signal /fundamentals
+    /insider /watchlist — all verified against live DB.
+  - AI queries: Gemini (gemini-1.5-pro) primary → Groq (llama-3.3-70b) fallback → rule-based apology.
+    Raw REST (no SDKs), context built relevant-rows-only (<2000 tok). Verified graceful fallback.
+  - Persistent listener: scripts/com.stockanalyzer.telegram.plist (KeepAlive launchd).
+  - ⚠️ Needs .env keys (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, GEMINI_API_KEY, GROQ_API_KEY) for
+    end-to-end Telegram send/receive — see .env.example + ENGINEERING.md "Telegram Bot".
+
 ### IN PROGRESS
 - None
 
