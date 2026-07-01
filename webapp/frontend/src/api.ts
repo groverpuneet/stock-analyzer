@@ -126,6 +126,9 @@ export const api = {
   triggerAll: () => fetch("/api/refresh/trigger-all", { method: "POST", credentials: "include" }).then((r) => r.json()),
   triggerFailed: () => fetch("/api/refresh/trigger-failed", { method: "POST", credentials: "include" }).then((r) => r.json()),
   triggerFull: () => fetch("/api/refresh/trigger-full", { method: "POST", credentials: "include" }).then((r) => r.json()),
+  triggerAudit: () => fetch("/api/refresh/trigger-audit", { method: "POST", credentials: "include" }).then((r) => r.json()),
+  refreshControl: () => get<any>("/api/refresh/control"),
+  refreshHealth: () => get<any>("/api/refresh/health"),
   qualityHealth: () => get<any>("/api/quality/health"),
   fearGreed: () => get<FearGreed>("/api/macro/fear-greed"),
   quarterlyResults: (id: number) => get<any>(`/api/stocks/${id}/quarterly-results`),
@@ -179,7 +182,11 @@ export const statusClass: Record<string, string> = {
   success: "bg-buy/15 text-buy border-buy/30",
   error: "bg-sell/15 text-sell border-sell/30",
   failed: "bg-sell/15 text-sell border-sell/30",
+  stalled: "bg-sell/15 text-sell border-sell/30",
   running: "bg-watch/15 text-watch border-watch/30",
+  retrying: "bg-watch/15 text-watch border-watch/30",
+  partial: "bg-watch/15 text-watch border-watch/30",
+  pending: "bg-slate-600/15 text-slate-400 border-slate-600/30",
   never_run: "bg-slate-600/15 text-slate-400 border-slate-600/30",
 };
 

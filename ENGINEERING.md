@@ -463,6 +463,37 @@ skew the comparison. Folded into the weekly `nse_fundamentals` asset so it refre
 - `GET /api/stocks/{id}/pe-history` — P/E series + current vs 1yr/5yr avg + p25/p75 zones (chart).
 - `POST /api/refresh/trigger-all` / `trigger-failed` — bulk-launch Dagster assets (deduped).
 
+### Unified Refresh Control (`/refresh` page, Session K)
+One page replaces the old **Data Sources** + **Refresh Status** pages. Backend:
+`webapp/backend/routers/refresh.py`.
+- `GET /api/refresh/control` — the whole page in one call: collectors grouped by
+  market × cadence (India Daily/Weekly/Monthly, US Daily/Weekly, + an "Other/Untracked"
+  catch-all so nothing is hidden), each with real status, rows, duration, last-run,
+  next scheduled run (computed from the Dagster cron via a small `_next_run` helper),
+  a derived overall health, and `last_full_refresh` (= when `signals`, the terminal
+  daily asset, last succeeded).
+- `GET /api/refresh/health` — compact `{level,color,counts}` for the global header
+  banner (`DataHealth.tsx`), computed the **same way** as `/control` so no two pages
+  can disagree.
+- `POST /api/refresh/trigger` / `trigger-all` / `trigger-failed` / `trigger-audit` —
+  launch one / all / only-unhealthy / the data-quality audit assets. All go through
+  the same `dagster_client.launch_asset` (implicit `__ASSET_JOB`, single-asset select).
+- Frontend polls `/control` every 5s while any job is running; individual + bulk Run
+  buttons; India/US visually separated.
+
+**Single source of truth = `data_refresh_log`, NOT the Dagster run status.**
+Diagnosed root cause of the old "one page says failed, another says fine": on this
+8GB M1 a Dagster run can finish its step successfully (collector writes its rows and
+marks `data_refresh_log` = `success`) yet the **run** is still marked `FAILURE` at
+finalize (`stepsFailed: 0`, empty `RunFailureEvent` — the run-worker subprocess exits
+abnormally after the step). The old `RefreshButton` polled the Dagster *run* status and
+so showed phantom failures. Every page now reads the collector's own result from
+`data_refresh_log`. A run that is *killed mid-step* (process reaped before the
+`refresh_log` context manager closes the row) leaves `status='running'`; `refresh.py`
+treats a `running` row with a `completed_at` set, or started > 3h ago, as **`stalled`**
+(shown red, with a Run button) — these were the two orphaned rows (shareholding_pattern,
+analyst_targets) surfacing as the original "failures".
+
 ---
 
 ## 9. Integrations Roadmap
