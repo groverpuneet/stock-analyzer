@@ -4,6 +4,7 @@ Everything reads from data_refresh_log (one row per source = its latest run).
 Manual "Refresh Now" launches the corresponding Dagster asset via GraphQL.
 """
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -39,8 +40,15 @@ SOURCE_META: dict[str, dict] = {
     "us_prices": {"provides": "US OHLCV prices", "asset": "us_raw_prices"},
     "sec_form4": {"provides": "US insider trades (SEC Form 4)", "asset": "us_insider_trades"},
     "fred_macro": {"provides": "US macro (FRED: rates, CPI, GDP, …)", "asset": "us_macro"},
+    "sec_13f": {"provides": "US 13F institutional holdings", "asset": "us_13f_holdings"},
+    "kite_token": {"provides": "Kite access token (daily refresh)", "asset": "kite_token_refreshed"},
+    "sast_disclosures": {"provides": "SAST substantial-acquisition disclosures", "asset": "nse_sast_disclosures"},
+    "pledging_alerts": {"provides": "Promoter share-pledging alerts", "asset": "nse_pledging_alerts"},
+    "analyst_targets": {"provides": "Analyst price targets", "asset": "nse_analyst_targets"},
+    "mf_stock_holdings": {"provides": "MF / DII stock holdings (proxy)", "asset": "nse_mf_holdings"},
     "sector_indices": {"provides": "NSE sector indices", "asset": None},
     "whatsapp": {"provides": "WhatsApp expert chat signals", "asset": None},
+    "congress_trades": {"provides": "US Congress trades (source blocked)", "asset": None},
 }
 
 # Max age (days) before a source of a given tier is considered stale. event-driven = no SLA.
@@ -68,6 +76,168 @@ def _is_stale(tier: str, completed_at, status: str) -> bool:
         return True
     age = datetime.now() - completed_at
     return age > timedelta(days=max_age)
+
+
+# ---------------------------------------------------------------------------
+# Unified refresh control (/refresh page): job groups + real status + schedules
+# ---------------------------------------------------------------------------
+
+# A run stuck in 'running' longer than this (with no completion) is treated as
+# stalled — Dagster process died without the refresh_log context manager closing
+# the row. This is the root cause of the phantom "failures" the old UI showed.
+STALLED_AFTER = timedelta(hours=3)
+
+IST = "Asia/Kolkata"
+EST = "America/New_York"
+
+# Ordered job groups. Each job: (source, label, [cron], [tz], [sched_label]).
+# Cron/tz/sched_label fall back to the group's when omitted. cron drives next-run.
+JOB_GROUPS = [
+    {
+        "id": "india_daily", "title": "India Daily", "flag": "🇮🇳", "region": "India",
+        "cron": "0 16 * * 1-5", "tz": IST, "sched_label": "Mon–Fri 16:00 IST",
+        "jobs": [
+            ("kite_token", "Kite Token", "0 8 * * *", IST, "Daily 08:00 IST"),
+            ("kite_ohlcv", "OHLCV Prices", None, None, None),
+            ("tech_indicators", "Technicals", None, None, None),
+            ("fii_dii", "FII / DII", "30 16 * * 1-5", IST, "Mon–Fri 16:30 IST"),
+            ("fno_data", "F&O Data", "45 16 * * 1-5", IST, "Mon–Fri 16:45 IST"),
+            ("block_deals", "Block Deals", "30 16 * * 1-5", IST, "Mon–Fri 16:30 IST"),
+            ("bulk_deals", "Bulk Deals", "30 16 * * 1-5", IST, "Mon–Fri 16:30 IST"),
+            ("nse_actions", "Corp Actions", None, None, None),
+            ("news_sentiment", "News Sentiment", None, None, None),
+            ("fear_greed", "Fear & Greed", None, None, None),
+            ("signals", "Signals", None, None, None),
+        ],
+    },
+    {
+        "id": "india_weekly", "title": "India Weekly", "flag": "🇮🇳", "region": "India",
+        "cron": "30 7 * * 0", "tz": IST, "sched_label": "Sun 07:30 IST",
+        "jobs": [
+            ("screener", "Fundamentals", None, None, None),
+            ("quarterly_financials", "Quarterly Results", None, None, None),
+            ("insider_trades", "Insider Trades", None, None, None),
+            ("shareholding_pattern", "Shareholding", None, None, None),
+            ("sast_disclosures", "SAST Disclosures", None, None, None),
+            ("pledging_alerts", "Pledging Alerts", None, None, None),
+            ("analyst_targets", "Analyst Targets", None, None, None),
+            ("google_trends", "Google Trends", None, None, None),
+            ("rbi_dbie", "RBI DBIE Macro", None, None, None),
+            ("mospi_macro", "MoSPI Macro", None, None, None),
+            ("rbi_macro", "RBI Rates", None, None, None),
+        ],
+    },
+    {
+        "id": "india_monthly", "title": "India Monthly", "flag": "🇮🇳", "region": "India",
+        "cron": "0 2 1 * *", "tz": IST, "sched_label": "1st of month 02:00 IST",
+        "jobs": [
+            ("model_refresh", "Model Refresh", None, None, None),
+            ("mf_stock_holdings", "MF Holdings", None, None, None),
+        ],
+    },
+    {
+        "id": "us_daily", "title": "US Daily", "flag": "🇺🇸", "region": "US",
+        "cron": "30 16 * * 1-5", "tz": EST, "sched_label": "Mon–Fri 16:30 EST",
+        "jobs": [
+            ("us_prices", "US Prices", None, None, None),
+            ("sec_form4", "US Insider (Form 4)", None, None, None),
+        ],
+    },
+    {
+        "id": "us_weekly", "title": "US Weekly", "flag": "🇺🇸", "region": "US",
+        "cron": "0 7 * * 0", "tz": EST, "sched_label": "Sun 07:00 EST",
+        "jobs": [
+            ("fred_macro", "US Macro (FRED)", None, None, None),
+            ("sec_13f", "13F Holdings", None, None, None),
+        ],
+    },
+]
+
+# Every source that belongs to a group (so we can list the leftovers under "Other").
+_GROUPED_SOURCES = {j[0] for g in JOB_GROUPS for j in g["jobs"]}
+
+
+def _parse_dow(dow: str):
+    """cron day-of-week (0/7=Sun) -> set of ints {0=Sun..6=Sat}, or None for any."""
+    if dow == "*":
+        return None
+    if "-" in dow:
+        a, b = (int(x) for x in dow.split("-"))
+        return {d % 7 for d in range(a, b + 1)}
+    return {int(dow) % 7}
+
+
+def _next_run(cron: str, tz: str):
+    """Next fire time for a simple 'm h dom mon dow' cron (single m/h). ISO or None."""
+    try:
+        m_s, h_s, dom_s, _mon_s, dow_s = cron.split()
+        minute, hour = int(m_s), int(h_s)
+    except Exception:  # noqa: BLE001
+        return None
+    dow_set = _parse_dow(dow_s)
+    dom = None if dom_s == "*" else int(dom_s)
+    now = datetime.now(ZoneInfo(tz))
+    base = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    for i in range(0, 400):
+        c = base + timedelta(days=i)
+        if c <= now:
+            continue
+        if dow_set is not None and (c.isoweekday() % 7) not in dow_set:
+            continue
+        if dom is not None and c.day != dom:
+            continue
+        return c.isoformat()
+    return None
+
+
+def _effective_status(row: dict) -> str:
+    """Collapse the raw data_refresh_log status into what the UI should show.
+
+    Turns a run stuck in 'running' with no recent activity into 'stalled' so it
+    reads as a real problem (this is the phantom-failure fix)."""
+    st = row.get("status")
+    if st == "running":
+        anchor = row.get("started_at") or row.get("completed_at")
+        # a 'running' row that already has a completed_at, or started long ago,
+        # is an orphaned run — the process died without closing the log row.
+        if row.get("completed_at") is not None or (
+            anchor is not None and datetime.now() - anchor > STALLED_AFTER
+        ):
+            return "stalled"
+    return st or "never_run"
+
+
+# statuses that count as "needs attention" for health + Retry-Failed.
+_UNHEALTHY = {"error", "stalled", "never_run", "retrying", "partial"}
+
+
+def _job_payload(source: str, label: str, cron: str, tz: str, sched_label: str,
+                 by_source: dict) -> dict:
+    row = by_source.get(source) or {}
+    eff = _effective_status(row) if row else "never_run"
+    started, completed = row.get("started_at"), row.get("completed_at")
+    duration = None
+    if started and completed and completed >= started:
+        duration = round((completed - started).total_seconds())
+    meta = SOURCE_META.get(source, {})
+    return {
+        "source": source,
+        "label": label,
+        "provides": meta.get("provides", "—"),
+        "status": eff,
+        "raw_status": row.get("status"),
+        "started_at": _iso(started),
+        "completed_at": _iso(completed),
+        "duration_secs": duration,
+        "rows_upserted": row.get("rows_upserted"),
+        "error_message": row.get("error_message"),
+        "coverage_pct": float(row["coverage_pct"]) if row.get("coverage_pct") is not None else None,
+        "retry_count": row.get("retry_count") or 0,
+        "tier": row.get("tier"),
+        "schedule": sched_label,
+        "next_run": _next_run(cron, tz),
+        "triggerable": meta.get("asset") is not None,
+    }
 
 
 @router.get("/last")
@@ -212,11 +382,16 @@ def trigger_all():
 
 @router.post("/trigger-failed")
 def trigger_failed():
-    """Refresh only sources whose last run failed or never ran."""
+    """Refresh only sources that need attention: failed, stalled, never-run,
+    retrying, or partial (evaluated the same way the /control page shows them)."""
     rows = query_all(
-        "SELECT source FROM data_refresh_log WHERE status IN ('error', 'never_run')"
+        "SELECT source, status, started_at, completed_at FROM data_refresh_log"
     )
-    names = [r["source"] for r in rows if (SOURCE_META.get(r["source"]) or {}).get("asset")]
+    names = [
+        r["source"] for r in rows
+        if _effective_status(r) in _UNHEALTHY
+        and (SOURCE_META.get(r["source"]) or {}).get("asset")
+    ]
     launched = _launch_sources(names)
     ok = sum(1 for r in launched if r.get("ok"))
     return {"launched": launched, "count": len(launched), "ok": ok}
@@ -244,3 +419,114 @@ def trigger_full():
 @router.get("/run-status")
 def get_run_status(run_id: str):
     return dagster_client.run_status(run_id)
+
+
+def _all_rows_by_source() -> dict:
+    rows = query_all(
+        "SELECT source, tier, status, started_at, completed_at, rows_upserted, "
+        "error_message, coverage_pct, retry_count FROM data_refresh_log"
+    )
+    return {r["source"]: r for r in rows}
+
+
+def _derive_health(jobs: list[dict]) -> dict:
+    """Single source of truth: roll up per-source data_refresh_log statuses."""
+    failed = [j["source"] for j in jobs if j["status"] in ("error", "stalled")]
+    attention = [j["source"] for j in jobs if j["status"] in ("retrying", "partial", "never_run")]
+    stale = [j["source"] for j in jobs
+             if _is_stale(j.get("tier"), _parse_iso(j["completed_at"]), j["status"])]
+    if failed:
+        level, color = "failed", "red"
+    elif stale or attention:
+        level, color = "stale", "yellow"
+    else:
+        level, color = "healthy", "green"
+    return {
+        "level": level, "color": color,
+        "failed": failed, "attention": attention, "stale": stale,
+        "counts": {
+            "total": len(jobs),
+            "success": sum(1 for j in jobs if j["status"] == "success"),
+            "failed": len(failed), "attention": len(attention), "stale": len(stale),
+        },
+    }
+
+
+def _parse_iso(s):
+    return datetime.fromisoformat(s) if s else None
+
+
+@router.get("/control")
+def control():
+    """Everything the unified /refresh page needs, from data_refresh_log only.
+
+    Groups jobs by India/US × cadence, with real status, duration, rows, next
+    scheduled run, and a derived overall health — one source of truth."""
+    by_source = _all_rows_by_source()
+    groups, all_jobs = [], []
+    for g in JOB_GROUPS:
+        jobs = []
+        for source, label, cron, tz, sched in g["jobs"]:
+            jobs.append(_job_payload(
+                source, label,
+                cron or g["cron"], tz or g["tz"], sched or g["sched_label"],
+                by_source,
+            ))
+        all_jobs.extend(jobs)
+        groups.append({
+            "id": g["id"], "title": g["title"], "flag": g["flag"], "region": g["region"],
+            "schedule": g["sched_label"], "next_run": _next_run(g["cron"], g["tz"]),
+            "jobs": jobs,
+        })
+
+    # anything in data_refresh_log we didn't place in a group — surface it honestly
+    other = []
+    for source, row in sorted(by_source.items()):
+        if source in _GROUPED_SOURCES:
+            continue
+        other.append(_job_payload(source, source, "", "", "no schedule", by_source))
+    if other:
+        all_jobs.extend(other)
+        groups.append({
+            "id": "other", "title": "Other / Untracked", "flag": "⚙️", "region": "—",
+            "schedule": "—", "next_run": None, "jobs": other,
+        })
+
+    # "last full refresh" = when the India daily pipeline last finished (signals is
+    # the terminal asset, downstream of every daily collector).
+    sig = by_source.get("signals") or {}
+    last_full = _iso(sig.get("completed_at")) if sig.get("status") == "success" else None
+
+    return {
+        "groups": groups,
+        "health": _derive_health(all_jobs),
+        "last_full_refresh": last_full,
+        "dagster_healthy": dagster_client.healthy(),
+        "server_time": datetime.now().isoformat(),
+    }
+
+
+@router.get("/health")
+def refresh_health():
+    """Compact health for the global header banner — same source of truth as
+    /control, so every page agrees (fixes the 'one page says failed' mismatch)."""
+    by_source = _all_rows_by_source()
+    jobs = []
+    for g in JOB_GROUPS:
+        for source, label, cron, tz, sched in g["jobs"]:
+            jobs.append(_job_payload(source, label, cron or g["cron"],
+                                     tz or g["tz"], sched or g["sched_label"], by_source))
+    h = _derive_health(jobs)
+    return {"level": h["level"], "color": h["color"], "counts": h["counts"],
+            "dagster_healthy": dagster_client.healthy()}
+
+
+@router.post("/trigger-audit")
+def trigger_audit():
+    """Run the data-quality audit assets (gap detection + completeness scoring)."""
+    launched = []
+    for asset in ("nse_daily_audit", "nse_weekly_audit"):
+        res = dagster_client.launch_asset(asset)
+        launched.append({"asset": asset, **res})
+    ok = sum(1 for r in launched if r.get("ok"))
+    return {"launched": launched, "count": len(launched), "ok": ok}

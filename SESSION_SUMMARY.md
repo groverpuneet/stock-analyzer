@@ -69,6 +69,23 @@ Building a quantitative stock analysis system for Indian equities (expanding to 
 - **SQL injection audit**: All queries parameterized
 - **Dependency audit**: Known vulnerabilities documented (accepted risk)
 
+### Session K: Unified Refresh Control (COMPLETE)
+- **New `/refresh` page** replaces the old Data Sources + Refresh Status pages
+  (both now redirect to `/refresh`). Collectors grouped by market × cadence
+  (🇮🇳 India Daily/Weekly/Monthly, 🇺🇸 US Daily/Weekly, + Other), each with real
+  status, rows, duration, last run, next scheduled run, and an individual ▶ Run button.
+- **Top controls**: ▶ Run All Now, ⚠ Retry Failed (only unhealthy sources),
+  🔍 Audit (runs data-quality audit assets). Polls every 5s while jobs run.
+- **Fixed status consistency**: every page (page badges, header health banner,
+  `/refresh`) now reads from `data_refresh_log` — one source of truth.
+- **Root-caused the phantom failures**: Dagster *run* status is unreliable on this
+  8GB M1 (run marked FAILURE at finalize even when the step + collector succeeded,
+  `stepsFailed: 0`). The old Refresh button polled run status; now everything reads
+  the collector's own `data_refresh_log` result. Orphaned `running` rows (process
+  killed mid-step) are surfaced as **stalled** (red, retryable), not hidden.
+- New endpoints: `GET /api/refresh/control`, `GET /api/refresh/health`,
+  `POST /api/refresh/trigger-audit`. See ENGINEERING.md → Unified Refresh Control.
+
 ## Current State
 
 ### Running Services (launchd)

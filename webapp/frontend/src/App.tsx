@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import StockDetail from "./pages/StockDetail";
 import Macro from "./pages/Macro";
@@ -7,8 +7,7 @@ import Watchlist from "./pages/Watchlist";
 import Opportunities from "./pages/Opportunities";
 import SmartMoney from "./pages/SmartMoney";
 import RiskAlerts from "./pages/RiskAlerts";
-import DataSources from "./pages/DataSources";
-import RefreshStatus from "./pages/RefreshStatus";
+import Refresh from "./pages/Refresh";
 import RawDataIndex from "./pages/RawDataIndex";
 import RawData from "./pages/RawData";
 import ChatWidget from "./components/ChatWidget";
@@ -30,8 +29,7 @@ const nav = [
   { to: "/risk-alerts", label: "Risk Alerts" },
   { to: "/macro", label: "Macro" },
   { to: "/watchlist", label: "Watchlist" },
-  { to: "/data-sources", label: "Data Sources" },
-  { to: "/refresh-status", label: "Refresh" },
+  { to: "/refresh", label: "Refresh" },
 ];
 
 // Raw Data submenu categories
@@ -196,8 +194,9 @@ export default function App() {
           <Route path="/opportunities" element={<Opportunities />} />
           <Route path="/smart-money" element={<SmartMoney />} />
           <Route path="/risk-alerts" element={<RiskAlerts />} />
-          <Route path="/data-sources" element={<DataSources />} />
-          <Route path="/refresh-status" element={<RefreshStatus />} />
+          <Route path="/refresh" element={<Refresh />} />
+          <Route path="/data-sources" element={<Navigate to="/refresh" replace />} />
+          <Route path="/refresh-status" element={<Navigate to="/refresh" replace />} />
           <Route path="/data" element={<RawDataIndex />} />
           <Route path="/data/:slug" element={<RawData />} />
         </Routes>
