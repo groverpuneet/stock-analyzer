@@ -9,8 +9,36 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 
 from db import query_all, query_one
+from routers.refresh import next_run_for_source
 
 router = APIRouter(prefix="/api/data", tags=["data"])
+
+# Table -> the scheduler job source that drives its "next scheduled refresh".
+# Keyed by table (not refresh_source) because a couple of refresh_source labels are
+# shared/ambiguous (e.g. "insider_bulk"). Tables absent here simply show no next-run.
+_TABLE_SCHED_SOURCE = {
+    "daily_prices": "kite_ohlcv",
+    "technical_indicators": "tech_indicators",
+    "fii_dii_flows": "fii_dii",
+    "fno_data": "fno_data",
+    "news_sentiment": "news_sentiment",
+    "corporate_actions": "nse_actions",
+    "earnings_calendar": "nse_actions",
+    "fundamentals": "screener",
+    "quarterly_financials": "quarterly_financials",
+    "insider_trades": "insider_trades",
+    "bulk_deals": "bulk_deals",
+    "shareholding_pattern": "shareholding_pattern",
+    "sast_disclosures": "sast_disclosures",
+    "pledging_alerts": "pledging_alerts",
+    "analyst_targets": "analyst_targets",
+    "institutional_holdings_13f": "sec_13f",
+    "tracked_filers": "sec_13f",
+    "mf_stock_holdings": "mf_stock_holdings",
+    "stock_scores": "model_refresh",
+    "indicator_baselines": "model_refresh",
+    "expiry_calendar": "expiry_calendar",
+}
 
 # Table metadata: columns to show, stock_id column, date column, last_updated source
 TABLE_META = {
@@ -154,9 +182,9 @@ TABLE_META = {
     },
     "sast_disclosures": {
         "stock_col": "stock_id",
-        "date_col": "date",
+        "date_col": "disclosure_date",
         "refresh_source": "sast_disclosures",
-        "order_default": "date DESC",
+        "order_default": "disclosure_date DESC NULLS LAST",
     },
     "shareholding_pattern": {
         "stock_col": "stock_id",
@@ -355,6 +383,17 @@ def get_table_data(
         if lu_row and lu_row["completed_at"]:
             last_updated = lu_row["completed_at"].isoformat()
 
+    # "Data as of" = the most recent date actually present in the table (its own date
+    # column), distinct from last_updated (when the collector last ran).
+    data_as_of = None
+    if date_col and date_col in columns:
+        ao_row = query_one(f"SELECT MAX({date_col}) AS mx FROM {table}")
+        if ao_row and ao_row["mx"] is not None:
+            data_as_of = _format_value(ao_row["mx"], date_col)
+
+    # "Next scheduled refresh" from the Dagster cron (best-effort; null if unmapped).
+    next_refresh = next_run_for_source(_TABLE_SCHED_SOURCE[table]) if table in _TABLE_SCHED_SOURCE else None
+
     return {
         "table": table,
         "columns": columns + (["symbol"] if stock_col else []),
@@ -364,6 +403,8 @@ def get_table_data(
         "per_page": per_page,
         "total_pages": (total + per_page - 1) // per_page,
         "last_updated": last_updated,
+        "data_as_of": data_as_of,
+        "next_refresh": next_refresh,
     }
 
 

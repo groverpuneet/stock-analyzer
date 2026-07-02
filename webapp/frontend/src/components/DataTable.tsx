@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import MarketBadge from "./MarketBadge";
 
-interface Column {
+export interface Column {
   key: string;
   label: string;
   sortable?: boolean;
@@ -18,6 +18,68 @@ interface DataTableProps {
   defaultSort?: string;
   defaultDir?: "asc" | "desc";
   stockFilter?: number;
+  // Augmentation (Session M — data vintage):
+  banner?: React.ReactNode;                       // warning/note rendered above the table
+  extraColumns?: Column[];                         // computed columns prepended to the DB columns
+  cellOverrides?: Record<string, (val: any, row: any) => React.ReactNode>; // per-key cell formatters
+}
+
+// ── Date/vintage helpers (exported for RawData per-slug config) ──────────────────
+export function daysAgo(val: string | null): number | null {
+  if (!val) return null;
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return null;
+  return Math.floor((Date.now() - d.getTime()) / 86_400_000);
+}
+
+export function relTime(val: string | null): string {
+  const n = daysAgo(val);
+  if (n === null) return "—";
+  if (n < 0) return "in " + (-n) + "d";
+  if (n === 0) return "today";
+  if (n === 1) return "1 day ago";
+  return `${n} days ago`;
+}
+
+// "2026Q1" -> "Q1 2026"
+export function quarterLabel(q: string | null): string {
+  if (!q) return "—";
+  const m = /^(\d{4})Q([1-4])$/.exec(q);
+  return m ? `Q${m[2]} ${m[1]}` : q;
+}
+
+const _FULL_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+// Indian fiscal-year quarter from a quarter-end date. FY runs Apr–Mar; FY26 = Apr'25–Mar'26.
+// e.g. 2026-03-31 -> "Q4 FY26 (Jan–Mar 2026)"
+export function fyQuarterLabel(val: string | null): string {
+  if (!val) return "—";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "—";
+  const mo = d.getMonth(); // 0-11
+  const yr = d.getFullYear();
+  let q: number, fy: number, span: string;
+  if (mo <= 2) { q = 4; fy = yr; span = `Jan–Mar ${yr}`; }
+  else if (mo <= 5) { q = 1; fy = yr + 1; span = `Apr–Jun ${yr}`; }
+  else if (mo <= 8) { q = 2; fy = yr + 1; span = `Jul–Sep ${yr}`; }
+  else { q = 3; fy = yr + 1; span = `Oct–Dec ${yr}`; }
+  return `Q${q} FY${String(fy).slice(2)} (${span})`;
+}
+
+// "2026-06-01" -> "June 2026"
+export function monthLabel(val: string | null): string {
+  if (!val) return "—";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "—";
+  return `${_FULL_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// Freshness colour by age in days: green (current) / yellow (recent) / red (stale).
+export function freshnessClass(days: number | null, greenMax = 45, yellowMax = 135): string {
+  if (days === null) return "text-slate-400";
+  if (days <= greenMax) return "text-buy";
+  if (days <= yellowMax) return "text-watch";
+  return "text-sell";
 }
 
 const STORAGE_KEY_PREFIX = "data-table-cols-";
@@ -95,11 +157,13 @@ function formatValue(val: any, key: string): React.ReactNode {
   return String(val);
 }
 
-export default function DataTable({ table, title, columns: propColumns, defaultSort, defaultDir = "desc", stockFilter }: DataTableProps) {
+export default function DataTable({ table, title, columns: propColumns, defaultSort, defaultDir = "desc", stockFilter, banner, extraColumns, cellOverrides }: DataTableProps) {
   const [data, setData] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [dataAsOf, setDataAsOf] = useState<string | null>(null);
+  const [nextRefresh, setNextRefresh] = useState<string | null>(null);
   const [dbColumns, setDbColumns] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -128,12 +192,14 @@ export default function DataTable({ table, title, columns: propColumns, defaultS
   // Build columns from DB schema or props
   const columns: Column[] = useMemo(() => {
     if (propColumns) return propColumns;
-    return dbColumns.map((key) => ({
+    const auto = dbColumns.map((key) => ({
       key,
       label: key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
       sortable: true,
     }));
-  }, [propColumns, dbColumns]);
+    // Computed/vintage columns (not sortable — they don't exist in the DB) go first.
+    return [...(extraColumns ?? []), ...auto];
+  }, [propColumns, dbColumns, extraColumns]);
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -163,6 +229,8 @@ export default function DataTable({ table, title, columns: propColumns, defaultS
       setTotalCount(json.total_count);
       setTotalPages(json.total_pages);
       setLastUpdated(json.last_updated);
+      setDataAsOf(json.data_as_of ?? null);
+      setNextRefresh(json.next_refresh ?? null);
       setDbColumns(json.columns);
     } catch (e: any) {
       console.error("[DataTable] Error:", e);
@@ -236,7 +304,12 @@ export default function DataTable({ table, title, columns: propColumns, defaultS
           <h1 className="text-xl font-semibold text-slate-100">{title}</h1>
           <div className="text-sm text-slate-400">
             {formatNumber(totalCount, 0)} rows
-            {lastUpdated && <span> · Last updated: {formatDate(lastUpdated)}</span>}
+          </div>
+          {/* Data freshness: most-recent data date · when the collector last ran · next run */}
+          <div className="text-xs text-slate-500 flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+            {dataAsOf && <span>📅 Data as of: <span className="text-slate-300">{formatDate(dataAsOf)}</span></span>}
+            {lastUpdated && <span>🔄 Last refreshed: <span className="text-slate-300">{formatDate(lastUpdated)}</span> ({relTime(lastUpdated)})</span>}
+            {nextRefresh && <span>⏭ Next refresh: <span className="text-slate-300">{formatDate(nextRefresh)}</span></span>}
           </div>
         </div>
 
@@ -292,6 +365,9 @@ export default function DataTable({ table, title, columns: propColumns, defaultS
         </div>
       </div>
 
+      {/* Optional per-page banner (data-vintage / regulatory caveat) */}
+      {banner && <div className="shrink-0">{banner}</div>}
+
       {/* Table */}
       <div className="overflow-auto border border-edge rounded flex-1 min-h-0">
         <table className="w-full text-sm">
@@ -340,6 +416,8 @@ export default function DataTable({ table, title, columns: propColumns, defaultS
                         </Link>
                       ) : col.format ? (
                         col.format(row[col.key], row)
+                      ) : cellOverrides?.[col.key] ? (
+                        cellOverrides[col.key](row[col.key], row)
                       ) : (
                         formatValue(row[col.key], col.key)
                       )}

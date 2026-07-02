@@ -190,6 +190,16 @@ def _next_run(cron: str, tz: str):
     return None
 
 
+def next_run_for_source(source: str):
+    """Public helper: next scheduled fire time (ISO) for a job source, or None.
+    Resolves the source's own cron/tz within JOB_GROUPS, falling back to the group's."""
+    for g in JOB_GROUPS:
+        for j in g["jobs"]:
+            if j[0] == source:
+                return _next_run(j[2] or g["cron"], j[3] or g["tz"])
+    return None
+
+
 def _effective_status(row: dict) -> str:
     """Collapse the raw data_refresh_log status into what the UI should show.
 

@@ -118,7 +118,7 @@ export default function App() {
     <div className="h-screen flex flex-col overflow-hidden">
       <header className="sticky top-0 z-40 bg-ink/90 backdrop-blur border-b border-edge">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-4">
-          <div className="font-bold text-slate-100 whitespace-nowrap">📈 Stock Analyzer</div>
+          <NavLink to="/" className="font-bold text-slate-100 whitespace-nowrap hover:text-white" title="Home — Signals">📈 Stock Analyzer</NavLink>
           <nav className="flex gap-1 overflow-x-auto flex-1 items-center">
             {nav.map((n) => (
               <NavLink

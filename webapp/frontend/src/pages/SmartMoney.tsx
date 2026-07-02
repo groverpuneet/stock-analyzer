@@ -1,6 +1,7 @@
 import { useCallback, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import RefreshAll from "../components/RefreshAll";
+import { quarterLabel, daysAgo } from "../components/DataTable";
 
 interface Holding13F {
   filer_name: string;
@@ -215,6 +216,14 @@ export default function SmartMoney() {
             filtered13F.length === 0 ? (
               <div className="text-center py-12 text-slate-400">No 13F data available</div>
             ) : (
+              <>
+              {holdings[0] && (
+                <div className="text-xs rounded border px-3 py-2 mb-3 bg-amber-500/10 border-amber-500/40 text-amber-200">
+                  📅 Showing <b>{quarterLabel(holdings[0].quarter)}</b> filings — data is{" "}
+                  <b>{daysAgo(holdings[0].filing_date) ?? "?"} days old</b> (filed {formatDate(holdings[0].filing_date)}).
+                  Funds have up to 45 days to file after quarter end, so holdings may have changed.
+                </div>
+              )}
               <table className="w-full text-sm">
                 <thead className="bg-edge text-slate-300">
                   <tr>
@@ -256,6 +265,7 @@ export default function SmartMoney() {
                   })}
                 </tbody>
               </table>
+              </>
             )
           )}
 
@@ -273,6 +283,7 @@ export default function SmartMoney() {
                       <th className="px-3 py-2 text-left">Acquirer</th>
                       <th className="px-3 py-2 text-left">Type</th>
                       <th className="px-3 py-2 text-left">Transaction</th>
+                      <th className="px-3 py-2 text-left">Acquisition Date</th>
                       <th className="px-3 py-2 text-left">Disclosure Date</th>
                     </tr>
                   </thead>
@@ -291,7 +302,8 @@ export default function SmartMoney() {
                             {s.transaction_type || "—"}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-slate-400">{formatDate(s.disclosure_date || s.acquisition_date)}</td>
+                        <td className="px-3 py-2 text-slate-400">{formatDate(s.acquisition_date)}</td>
+                        <td className="px-3 py-2 text-slate-400">{formatDate(s.disclosure_date)}</td>
                       </tr>
                     ))}
                   </tbody>
