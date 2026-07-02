@@ -133,6 +133,41 @@ chore:    dependency updates, config changes
 
 ---
 
+## Git Author Configuration (CRITICAL)
+
+Every session must verify the git author **before any commits**:
+
+```bash
+git config user.email        # MUST show puneetgrover1991@gmail.com
+```
+
+If it's wrong, fix it immediately:
+
+```bash
+git config --global user.email "puneetgrover1991@gmail.com"
+git config --global user.name  "Puneet Grover"
+# IMPORTANT: also check for a repo-local override that shadows --global:
+git config --local user.email  # if set to anything else, this wins over global
+```
+
+**Gotcha (this bit us):** the original wrong-email bug lived in the **repo-local**
+`.git/config` (`user.email = your.email@example.com`), which shadows `--global`.
+`git config --global …` alone does **not** fix it — always confirm the *effective*
+value with `git config user.email`.
+
+A **pre-commit hook** (`.git/hooks/pre-commit`) now blocks any commit whose effective
+email isn't `puneetgrover1991@gmail.com`, firing before all other checks. (The hook
+is local to this clone — it isn't version-controlled, so re-add it on a fresh clone.)
+
+**History note:** on 2026-07-02 all 86 existing commits (which carried the placeholder
+`your.email@example.com`) were rewritten to the correct email via
+`git filter-branch --env-filter` and force-pushed. `git rebase --root` could **not**
+be used because `node_modules/` was committed early in history and its per-commit tree
+checkouts collide with the on-disk (now gitignored) `node_modules`. `filter-branch`
+rewrites commit metadata only, so it sidesteps that.
+
+---
+
 ## 4. Database & Migrations
 
 ### Connection

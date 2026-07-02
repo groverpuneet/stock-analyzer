@@ -9,6 +9,7 @@ cp /path/to/.env.example .env  # fill in your keys
 cd ~/stock-analyzer && claude
 
 ## Paste this to resume:
+First: verify git config user.email shows puneetgrover1991@gmail.com — if not: git config --global user.email 'puneetgrover1991@gmail.com' && git config --global user.name 'Puneet Grover'
 Read SESSION_SUMMARY.md, TASKS.md, and ENGINEERING.md first.
 Check git log --oneline -10 to see latest work.
 Find next unchecked item in TASKS.md and continue.
