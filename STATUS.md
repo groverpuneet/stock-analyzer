@@ -528,3 +528,22 @@
 - Macro page: "📊 Current Market Context for Signal Engine" card.
 - Recomputed 98 stocks × 3 horizons (external all cached; avg F62.7 FL48.2). SBIN verified:
   6 [MACRO] + 5 [STOCK] flow lines.
+
+### Data quality audit — nse_daily @ 2026-07-02 02:16
+- gaps: {'ohlcv': 0, 'indicators': 0, 'signals': 94, 'news': 57} (total 151)
+- 3 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60)
+
+### Data quality audit — nse_weekly @ 2026-07-02 02:29
+- gaps: {'fundamentals': 4, 'shareholding': 3} (total 7)
+- 3 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60)
+
+### Watchdog retry — 2026-07-02 02:36
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Data quality audit — nse_daily @ 2026-07-02 02:37
+- gaps: {'ohlcv': 0, 'indicators': 0, 'signals': 94, 'news': 56} (total 150)
+- 3 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60)
+
+### Data quality audit — nse_weekly @ 2026-07-02 02:50
+- gaps: {'fundamentals': 4, 'shareholding': 3} (total 7)
+- 3 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60)

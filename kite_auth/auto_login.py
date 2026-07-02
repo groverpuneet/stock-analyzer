@@ -67,6 +67,19 @@ def _get_request_token(api_key: str, username: str, password: str, totp_secret: 
         browser = p.chromium.launch(headless=True)
         page    = browser.new_page()
 
+        # The post-login redirect points at the app's registered redirect URL
+        # (a 127.0.0.1 port that isn't served), so the navigation fails and
+        # page.url ends up as "chrome-error://chromewebdata/", losing the token.
+        # Capture request_token from the redirect REQUEST itself instead — the
+        # browser issues that GET (with ?request_token=...) before it fails to
+        # connect, so this is deterministic regardless of the failed navigation.
+        captured: dict[str, str] = {}
+
+        def _capture(req):
+            if "request_token=" in req.url and "url" not in captured:
+                captured["url"] = req.url
+        page.on("request", _capture)
+
         page.goto(login_url, wait_until='networkidle')
 
         # Step 1: user ID + password
@@ -79,15 +92,14 @@ def _get_request_token(api_key: str, username: str, password: str, totp_secret: 
         totp_code = pyotp.TOTP(totp_secret).now()
         log.info("TOTP generated, submitting...")
         page.locator('input').nth(0).type(totp_code, delay=50)
-        page.wait_for_timeout(10000)
 
-        # Step 3: capture redirect URL (127.0.0.1 won't load — catch the error)
-        try:
-            page.wait_for_url('**/request_token=**', timeout=15000)
-        except Exception:
-            pass  # connection refused to 127.0.0.1 is expected
+        # Step 3: wait (up to ~20s) for the redirect request carrying the token
+        for _ in range(40):
+            if "url" in captured:
+                break
+            page.wait_for_timeout(500)
 
-        redirect_url = page.url
+        redirect_url = captured.get("url") or page.url
         browser.close()
 
     match = re.search(r'[?&]request_token=([^&]+)', redirect_url)

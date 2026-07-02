@@ -14,14 +14,23 @@ from dagster import asset
 def nse_raw_prices(context) -> None:
     import os
     from data_collectors.collect_watchlist_data import collect_data, get_kite_client
-    # Token guard: a cheap validity probe. If it fails, skip the day's NSE pipeline.
+    from utils.db import refresh_log
+    # Token guard: a cheap validity probe. If it fails, record it (so the refresh
+    # page shows kite_ohlcv as failed, not silently stale) and skip the NSE pipeline.
     try:
         kite = get_kite_client()
         kite.ltp(["NSE:RELIANCE"])   # lightweight read-only call
     except Exception as e:  # noqa: BLE001
         context.log.error(f"Kite token invalid — skipping NSE prices today: {e}")
-        return
-    collect_data(watchlist_name="Default", days=5, include_quotes=True)
+        with refresh_log("kite_ohlcv") as rl:
+            rl["rows"] = 0
+            raise RuntimeError(f"Kite token invalid — prices skipped: {e}")
+    # Wrap in refresh_log so data_refresh_log('kite_ohlcv') reflects this run
+    # (collect_data itself does not log; the CLI path wraps it the same way).
+    with refresh_log("kite_ohlcv") as rl:
+        collect_data(watchlist_name="Default", days=5, include_quotes=True)
+        rl["rows"] = 10
+    context.log.info("NSE OHLCV prices collected")
 
 
 @asset(
@@ -31,7 +40,10 @@ def nse_raw_prices(context) -> None:
 )
 def nse_technical_indicators(context) -> None:
     from analysis.calculate_indicators import process_all_watchlist_stocks
-    process_all_watchlist_stocks()
+    from utils.db import refresh_log
+    with refresh_log("tech_indicators") as rl:
+        process_all_watchlist_stocks()
+        rl["rows"] = 10
 
 
 @asset(
@@ -124,7 +136,10 @@ def bse_bulk_deals(context) -> None:
 )
 def nse_signals(context) -> None:
     from signals.engine import run_signals
-    summary = run_signals(external_pause=1.2)
+    from utils.db import refresh_log
+    with refresh_log("signals") as rl:
+        summary = run_signals(external_pause=1.2)
+        rl["rows"] = summary.get("stocks", 0)
     context.log.info(
         f"Signals: {summary['stocks']} stocks · external fetched {summary['external_fetched']} · "
         f"avg pillar scores {summary['avg_pillar_scores']}"
