@@ -11,6 +11,7 @@ import Refresh from "./pages/Refresh";
 import RawDataIndex from "./pages/RawDataIndex";
 import RawData from "./pages/RawData";
 import Portfolio from "./pages/Portfolio";
+import SignalEngine from "./pages/SignalEngine";
 import ChatWidget from "./components/ChatWidget";
 import DataHealth from "./components/DataHealth";
 import { auth, isLocalhost } from "./api";
@@ -25,6 +26,7 @@ async function handleLogout() {
 
 const nav = [
   { to: "/", label: "Signals", end: true },
+  { to: "/signal-engine", label: "🎯 Signal Engine" },
   { to: "/opportunities", label: "Opportunities" },
   { to: "/smart-money", label: "Smart Money" },
   { to: "/risk-alerts", label: "Risk Alerts" },
@@ -203,6 +205,7 @@ export default function App() {
           <Route path="/data" element={<RawDataIndex />} />
           <Route path="/data/:slug" element={<RawData />} />
           <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/signal-engine" element={<SignalEngine />} />
         </Routes>
       </main>
 

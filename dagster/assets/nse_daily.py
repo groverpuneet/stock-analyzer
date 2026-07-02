@@ -115,11 +115,20 @@ def bse_bulk_deals(context) -> None:
     group_name="nse_daily",
     deps=[nse_technical_indicators, nse_fii_dii_flows, nse_corporate_actions,
           nse_news_sentiment, nse_fno_data, nse_block_deals, bse_bulk_deals],
-    description="BUY/SELL/WATCH signal report. Reads all context data from DB after upstream assets run.",
+    description=(
+        "4-pillar explainable signals (technical / fundamental / flow / external) per "
+        "watchlist stock, across SHORT/MID/LONG horizons, into signal_explanations. "
+        "External sentiment (DDG + Google-News + VADER) is fetched fresh and cached 6h. "
+        "Runs after news_sentiment so internal + external sentiment are both current."
+    ),
 )
 def nse_signals(context) -> None:
-    from analysis.generate_signals import generate_daily_report
-    generate_daily_report()
+    from signals.engine import run_signals
+    summary = run_signals(external_pause=1.2)
+    context.log.info(
+        f"Signals: {summary['stocks']} stocks · external fetched {summary['external_fetched']} · "
+        f"avg pillar scores {summary['avg_pillar_scores']}"
+    )
 
 
 @asset(

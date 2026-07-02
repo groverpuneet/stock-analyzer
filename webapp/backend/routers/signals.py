@@ -1,10 +1,66 @@
-"""Signal dashboard — BUY/SELL/WATCH across the watchlist with price, RSI, MACD."""
-from fastapi import APIRouter
+"""Signal dashboard — legacy verdict + 4-pillar explainable engine (Session L)."""
+from fastapi import APIRouter, HTTPException
 
-from db import query_all
+from db import query_all, query_one
 from signals_engine import signal_for_stock
 
 router = APIRouter(prefix="/api/signals", tags=["signals"])
+
+_HORIZONS = ("SHORT", "MID", "LONG")
+
+
+@router.get("/explained")
+def explained(watchlist: str = "Default"):
+    """Per watchlist stock: pillar scores (horizon-independent) + per-horizon overall
+    signal/confidence/agreement, from the latest signal_explanations run."""
+    rows = query_all(
+        """
+        SELECT se.stock_id, se.horizon, se.signal_type, se.overall_score, se.confidence,
+               se.all_pillars_agree, se.technical_score, se.fundamental_score,
+               se.flow_score, se.external_score,
+               s.tradingsymbol AS symbol, s.name, s.exchange, s.industry
+        FROM signal_explanations se
+        JOIN stocks s ON s.id = se.stock_id
+        JOIN watchlist w ON w.stock_id = se.stock_id AND w.name = %s
+        WHERE se.date = (SELECT MAX(date) FROM signal_explanations)
+        """,
+        (watchlist,),
+    )
+    by_stock: dict = {}
+    for r in rows:
+        sid = r["stock_id"]
+        e = by_stock.setdefault(sid, {
+            "stock_id": sid, "symbol": r["symbol"], "name": r["name"],
+            "exchange": r["exchange"], "industry": r["industry"],
+            "technical_score": r["technical_score"], "fundamental_score": r["fundamental_score"],
+            "flow_score": r["flow_score"], "external_score": r["external_score"],
+            "horizons": {},
+        })
+        e["horizons"][r["horizon"]] = {
+            "signal_type": r["signal_type"], "overall_score": r["overall_score"],
+            "confidence": r["confidence"], "all_pillars_agree": r["all_pillars_agree"],
+        }
+    return {"stocks": list(by_stock.values())}
+
+
+@router.get("/explanation/{stock_id}")
+def explanation(stock_id: int, horizon: str = "SHORT"):
+    """Full explanation for one stock + horizon (all pillar reasoning, contrary, what-would-change)."""
+    horizon = horizon.upper()
+    if horizon not in _HORIZONS:
+        raise HTTPException(400, "horizon must be SHORT/MID/LONG")
+    row = query_one(
+        """
+        SELECT se.*, s.tradingsymbol AS symbol, s.name, s.exchange, s.industry
+        FROM signal_explanations se JOIN stocks s ON s.id = se.stock_id
+        WHERE se.stock_id = %s AND se.horizon = %s
+          AND se.date = (SELECT MAX(date) FROM signal_explanations WHERE stock_id = %s)
+        """,
+        (stock_id, horizon, stock_id),
+    )
+    if not row:
+        raise HTTPException(404, "No signal explanation computed for this stock yet")
+    return row
 
 _WATCHLIST_SQL = """
     SELECT s.id, s.tradingsymbol, s.name, s.exchange, s.sector, s.industry,

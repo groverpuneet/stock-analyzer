@@ -499,3 +499,18 @@
   stock_reader denied, portfolio absent from /api/data/*, no financials in logs.
 - .env additions: PORTFOLIO_TOTP_SECRET, PORTFOLIO_ENCRYPTION_KEY, PORTFOLIO_DATABASE_URL.
 - Docker daemon down this session (webapp runs on host launchd; no rebuild needed).
+
+## 2026-07-02 — Session L: 4-pillar explainable signal engine
+- Migration 0024: signal_explanations (per stock/date/horizon: 4 pillar scores + reasoning
+  JSON, overall, confidence, all_pillars_agree, contrary, what_would_change, cached external
+  sentiment) + advisor_opinions placeholder.
+- signals/ package: technical, fundamental, flows, external (DDG+GoogleNews+VADER, 6h cache),
+  advisor (placeholder), combiner (per-horizon reweight), engine (orchestrate + persist).
+- nse_signals Dagster asset now runs the engine (dep on news_sentiment).
+- Backfill: 98 stocks × 3 horizons = 294 rows. Avg pillars T50.8 F60.7 FL49.9 E57.7.
+  External fetched+cached for all 98. Coverage: technical/flow 100%, fundamental/external
+  lower only for ETFs/small-caps that lack the underlying data (surfaced honestly).
+- UI: /signal-engine (🎯) — 3 horizon tabs, pillar badges, all-pillars-agree filter,
+  slide-in explanation panel (4 pillars + contrary + what-would-change + advisor coming-soon).
+- Legacy generate_signals.py documented in ENGINEERING ("Signal Generation — Legacy").
+- Installed deps: duckduckgo-search, vaderSentiment.

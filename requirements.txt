@@ -42,3 +42,7 @@ uvicorn[standard]
 bcrypt
 itsdangerous
 slowapi
+
+# Session L — 4-pillar signal engine (external sentiment)
+duckduckgo-search
+vaderSentiment

@@ -1,6 +1,23 @@
+"""Legacy single-verdict signal report (Session A-E).
+
+SUPERSEDED by the 4-pillar explainable engine in `signals/` (Session L): technical,
+fundamental, flow, and external pillars combined per SHORT/MID/LONG horizon into
+signal_explanations. The Dagster `nse_signals` asset now calls `signals.engine.run_signals`.
+This module is kept for the CLI text report and as reference; `run_pillar_signals()`
+delegates to the new engine.
+"""
 import psycopg2
 import pandas as pd
 from datetime import datetime
+
+
+def run_pillar_signals(**kwargs):
+    """Delegate to the new 4-pillar engine (signals/engine.py)."""
+    import os, sys
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from signals.engine import run_signals
+    return run_signals(**kwargs)
+
 
 DB_PARAMS = {
     'dbname': 'stock_analyzer',

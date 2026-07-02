@@ -946,3 +946,43 @@ ONLY (`"⚠️ SBIN approaching stop loss zone"`) — never quantities, prices, 
 
 **.env additions:** `PORTFOLIO_TOTP_SECRET`, `PORTFOLIO_ENCRYPTION_KEY`, `PORTFOLIO_DATABASE_URL`.
 One-time: `psql` create role `portfolio_user` + `CREATE EXTENSION pgcrypto` (see setup script).
+
+## Signal Generation — Legacy (Session A-E)
+
+`analysis/generate_signals.py` produced ONE verdict per stock from the latest 5 daily
+bars: RSI<30→BUY (STRONG<25) / RSI>70→SELL (STRONG>75); SMA50/200 golden/death cross;
+price/SMA20 cross; MACD signal cross; Bollinger touches; volume spike (>2× trailing-4-day
+avg)→WATCH. Verdict = majority of BUY vs SELL hits. Text-only report (no storage). The
+webapp mirrored these rules live in `webapp/backend/signals_engine.py`. Kept for the CLI
+report; the multi-dimensional engine below supersedes it for the dashboard.
+
+## Signal Engine — 4-Pillar Explainable (Session L)
+
+`signals/` package. Each pillar returns a 0-100 score (50 = neutral, >50 bullish) plus
+plain-English reasoning[], key_metrics{}, and contrary_indicators[]; missing data is
+handled gracefully (pillar score = None, ignored by the combiner).
+
+- **technical** (`signals/technical.py`): SMA trend stack, RSI, MACD (cross + histogram),
+  Bollinger, volume_ratio confirmation, OBV trend, VWAP.
+- **fundamental** (`fundamental.py`): P/E percentile vs own 5yr, ROE, debt/equity, OPM,
+  revenue/PAT YoY (quarterly_financials), earnings surprise, analyst consensus/upside,
+  FII%/promoter trend (shareholding), pledging.
+- **flow** (`flows.py`): insider (30d), bulk/SAST/13F, MF ownership MoM, news sentiment
+  7d + trend, market-wide FII/DII streak + 5d cumulative, options PCR/VIX, Google Trends.
+- **external** (`external.py`): fresh DuckDuckGo news + Google-News RSS headlines, VADER
+  compound + catalyst keyword hits. The network fetch is cached in
+  `signal_explanations.cached_external_sentiment` for 6h (`external_cache_expiry`).
+- **advisor** (`advisor.py`): Pillar-5 placeholder (weight 0; `advisor_opinions` table).
+
+`combiner.py` reweights per horizon — SHORT: T50/F5/FL30/E15, MID: T25/F30/FL25/E20,
+LONG: T10/F60/FL20/E10 — into overall_score → signal_type (STRONG_BUY≥75, BUY≥60,
+WATCH>41, SELL>26, else STRONG_SELL), confidence (pillar agreement), all_pillars_agree,
+contrary_indicators, and what_would_change. `engine.py` orchestrates + persists 3 rows
+(one per horizon) into `signal_explanations` (migration 0024).
+
+Dagster `nse_signals` (deps incl. `nse_news_sentiment`) calls `signals.engine.run_signals`.
+Backfill: `python -c "from signals.engine import run_signals; run_signals()"` (add
+`skip_external=True` to skip the web fetch). API: `GET /api/signals/explained` (list) +
+`GET /api/signals/explanation/{stock_id}?horizon=`. UI: `/signal-engine` (🎯 Signal Engine)
+— 3 horizon tabs, pillar badges, all-pillars-agree filter, slide-in explanation panel.
+Note: `duckduckgo_search` emits a deprecation warning (renamed to `ddgs`); still functional.
