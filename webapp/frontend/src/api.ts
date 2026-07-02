@@ -149,6 +149,7 @@ export const api = {
   refreshControl: () => get<any>("/api/refresh/control"),
   refreshHealth: () => get<any>("/api/refresh/health"),
   qualityHealth: () => get<any>("/api/quality/health"),
+  qualityGaps: () => get<any>("/api/quality/gaps"),
   fearGreed: () => get<FearGreed>("/api/macro/fear-greed"),
   quarterlyResults: (id: number) => get<any>(`/api/stocks/${id}/quarterly-results`),
   financials: (id: number) => get<any>(`/api/stocks/${id}/financials`),
