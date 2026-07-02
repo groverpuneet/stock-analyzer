@@ -23,16 +23,26 @@ def _clean(value):
 def _clean_row(row: dict) -> dict:
     return {k: _clean(v) for k, v in row.items()}
 
-DATABASE_URL = os.environ.get(
+# Reads use the read-only role (WEBAPP_DATABASE_URL, typically stock_reader).
+# Writes (watchlist add/remove) need the read-write role — the read-only role
+# has only SELECT on the watchlist table, so an INSERT/DELETE through it 500s.
+READ_DATABASE_URL = os.environ.get(
     "WEBAPP_DATABASE_URL",
     os.environ.get("DATABASE_URL", "postgresql://puneetgrover@localhost/stock_analyzer")
 )
+WRITE_DATABASE_URL = os.environ.get(
+    "DATABASE_URL", "postgresql://puneetgrover@localhost/stock_analyzer"
+)
+
+# Back-compat alias for any importer expecting the old name.
+DATABASE_URL = READ_DATABASE_URL
 
 
 @contextmanager
 def get_cursor(commit: bool = False):
-    """Yield a RealDictCursor. Commits only when explicitly asked (watchlist writes)."""
-    conn = psycopg2.connect(DATABASE_URL)
+    """Yield a RealDictCursor. Writes (commit=True) use the read-write role; reads
+    use the read-only role."""
+    conn = psycopg2.connect(WRITE_DATABASE_URL if commit else READ_DATABASE_URL)
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         yield cur
