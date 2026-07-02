@@ -872,3 +872,39 @@ Bypass with `git commit --no-verify` (use sparingly)
   Pinned by kiteconnect; we don't use websocket redirects.
 - `requests==2.32.3` (CVE-2024-47081, CVE-2026-25645): .netrc leak and temp file issue.
   We don't use .netrc or `extract_zipped_paths()`
+
+## Session K — Volume indicators, FII/DII trend, US watchlist add, India/US demarcation
+
+### Volume indicators (migration 0022)
+- `technical_indicators`: `volume_sma_20`, `volume_ratio` (vol/sma20), `volume_trend`
+  (RISING/FALLING/FLAT from 5d-vs-prior-5d avg), `obv` (On Balance Volume, cumulative),
+  `vwap` (rolling 20d volume-weighted typical price — daily bars have no intraday ticks,
+  so a rolling VWAP is the meaningful overlay).
+- `stock_scores.volume_signal`: VOLUME_BREAKOUT (ratio>2 & +1%), VOLUME_BREAKDOWN (ratio>2 & -1%),
+  LOW_VOLUME_MOVE (ratio<0.5). Computed in `analysis/calculate_indicators.py` and upserted onto
+  the stock's **latest existing** score row (not CURRENT_DATE) so it sits with composite_score
+  and never shadows it in the dashboard's DISTINCT-ON-latest query.
+- Backfill: `process_all_watchlist_stocks('Default', limit=600)` (full ~2yr). New US stocks get
+  indicators at add-time; daily runs recompute via the existing indicators asset / recompute_queue.
+
+### FII/DII day-over-day (niftytrader history source)
+- NSE `fiidiiTradeReact` returns only the latest day. `fetch_from_niftytrader()` (webapi.niftytrader.in
+  Resource/fii-dii-activity-data) supplies ~30 trading days of net values (matches NSE to the paisa;
+  no buy/sell split). `store_fii_dii_net()` upserts net-only with COALESCE so it never clobbers the
+  richer same-day NSE row. `collect_fii_dii()` tops up the 30-day window every run; `--backfill` flag
+  for a one-shot fill. Endpoint `/api/macro/fii-dii-trend` computes 5d/10d MAs, cumulatives, streaks.
+
+### US watchlist add (Polygon.io)
+- `webapp/backend/us_stock_add.py`: `search_us_tickers(q)` (Polygon `v3/reference/tickers`,
+  type=CS, active) and `add_us_stock(ticker)` — resolves name/exchange (MIC→NYSE/NASDAQ),
+  inserts into `stocks` with a synthetic instrument_token in the reserved US band
+  [9.0e9, 9.1e9), fetches 2yr OHLCV via the Polygon collector's `_fetch_bars`/`_store`,
+  computes indicators, adds to the watchlist. Market-data writes use the read-write DATABASE_URL.
+  Endpoints: `GET /api/watchlist/search-us`, `POST /api/watchlist/add-us`.
+
+### India/US demarcation (frontend)
+- `components/MarketBadge.tsx` — flag + exchange badge (India=orange, US=blue), reused everywhere.
+- Dashboard: market filter (India default), Market + Volume columns, US price in $ / India in ₹.
+- Macro: separate India (RBI/MoSPI/RBI-DBIE) and US (FRED) sections + FII/DII trend chart.
+- Opportunities: market filter + badges. Stock detail: VWAP overlay, coloured volume + 20d avg, OBV.
+- Raw-data tables render exchange/market as badges. SmartMoney/RiskAlerts/Fear&Greed already demarcated.

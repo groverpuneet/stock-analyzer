@@ -134,6 +134,74 @@ def fetch_from_moneycontrol() -> list:
     return results
 
 
+NIFTYTRADER_URL = "https://webapi.niftytrader.in/webapi/Resource/fii-dii-activity-data"
+
+
+def fetch_from_niftytrader() -> list:
+    """History source (~30 trading days) of FII/DII *net* cash flows.
+
+    NSE's fiidiiTradeReact API only returns the latest day, so this backfills the
+    30-day window the Macro chart needs. Net values match NSE to the paisa; buy/sell
+    breakdown isn't provided (left NULL — the daily NSE run fills those for today).
+    """
+    import time
+    hdrs = {'User-Agent': HEADERS['User-Agent'], 'Accept': 'application/json'}
+    last_err = None
+    for attempt in range(4):
+        try:
+            resp = requests.get(NIFTYTRADER_URL, headers=hdrs, timeout=30)
+            resp.raise_for_status()
+            break
+        except Exception as e:  # noqa: BLE001 — endpoint is occasionally slow
+            last_err = e
+            time.sleep(3 * (attempt + 1))
+    else:
+        raise RuntimeError(f"niftytrader unreachable after retries: {last_err}")
+    data = (resp.json().get('resultData') or {}).get('fii_dii_data') or []
+    results = []
+    for item in data:
+        d = _parse_nse_date(str(item.get('created_at', ''))[:10])
+        if not d:
+            continue
+        results.append({
+            'date':     d,
+            'fii_buy':  None, 'fii_sell': None,
+            'fii_net':  _parse_cr(item.get('fii_net_value')),
+            'dii_buy':  None, 'dii_sell': None,
+            'dii_net':  _parse_cr(item.get('dii_net_value')),
+            'source':   'niftytrader',
+        })
+    return results
+
+
+def store_fii_dii_net(rows: list[dict]) -> int:
+    """Upsert net-only history without clobbering richer same-day rows (NSE buy/sell)."""
+    conn = get_conn(); cursor = conn.cursor(); count = 0
+    for row in rows:
+        try:
+            cursor.execute("""
+                INSERT INTO fii_dii_flows (date, fii_net, dii_net, source)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (date) DO UPDATE SET
+                    fii_net = COALESCE(fii_dii_flows.fii_net, EXCLUDED.fii_net),
+                    dii_net = COALESCE(fii_dii_flows.dii_net, EXCLUDED.dii_net),
+                    source  = COALESCE(fii_dii_flows.source, EXCLUDED.source)
+            """, (row['date'], row['fii_net'], row['dii_net'], row['source']))
+            count += 1
+        except Exception as e:
+            print(f"  ⚠ Row insert error ({row.get('date')}): {e}")
+    conn.commit(); cursor.close(); conn.close()
+    return count
+
+
+def backfill_fii_dii_history() -> int:
+    """One-shot 30-day backfill from niftytrader. Returns rows upserted."""
+    rows = fetch_from_niftytrader()
+    n = store_fii_dii_net(rows)
+    print(f"  ✓ niftytrader backfill: {n} days upserted")
+    return n
+
+
 def _parse_nse_date(raw) -> date:
     if not raw:
         return None
@@ -201,6 +269,13 @@ def collect_fii_dii():
                 raise RuntimeError(f"Both sources failed. NSE: {e} | MC: {e2}")
 
         n = store_fii_dii(rows)
+
+        # Top up the 30-day history window (net-only) so the Macro chart stays full.
+        try:
+            n += backfill_fii_dii_history()
+        except Exception as e:
+            print(f"  ⚨ niftytrader history top-up failed ({e})")
+
         log['rows'] = n
 
     # Print last 5 days
@@ -238,4 +313,8 @@ def _print_recent(days=5):
 
 
 if __name__ == "__main__":
-    collect_fii_dii()
+    if "--backfill" in sys.argv:
+        backfill_fii_dii_history()
+        _print_recent(30)
+    else:
+        collect_fii_dii()

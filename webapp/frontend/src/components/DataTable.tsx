@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
+import MarketBadge from "./MarketBadge";
 
 interface Column {
   key: string;
@@ -35,6 +36,11 @@ function formatNumber(val: number | null, decimals = 2): string {
 
 function formatValue(val: any, key: string): React.ReactNode {
   if (val === null || val === undefined) return <span className="text-slate-500">—</span>;
+
+  // Market / exchange columns -> flag badge (India vs US demarcation)
+  if ((key === "exchange" || key === "market") && typeof val === "string") {
+    return <MarketBadge exchange={val} />;
+  }
 
   // Date columns
   if (key.includes("date") || key.includes("_at") || key === "period_end" || key === "quarter_end" || key === "month") {

@@ -2,8 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, fmt, Verdict, completenessClass } from "../api";
 import SignalBadge from "../components/SignalBadge";
+import MarketBadge, { marketOf } from "../components/MarketBadge";
 import LastUpdated from "../components/LastUpdated";
 import FearGreedWidget from "../components/FearGreedWidget";
+
+const isUS = (exchange?: string) => marketOf(exchange) === "us";
 
 type Row = Record<string, any>;
 type Dir = "asc" | "desc";
@@ -16,42 +19,47 @@ interface Col {
   num?: boolean;            // numeric sort + right align
   cls?: (v: any, r: Row) => string;
   width?: number;           // default width (px)
+  refreshAsset?: string;    // lead column of a source group → shows 🔄 in header
 }
 
 const cols: Col[] = [
   { key: "symbol", label: "Symbol", width: 90, render: (r) => (
       <Link to={`/stock/${r.stock_id}`} className="font-medium text-indigo-300 hover:text-indigo-200">{r.symbol}</Link>
     ) },
+  { key: "market", label: "Market", width: 96, render: (r) => <MarketBadge exchange={r.exchange} /> },
   { key: "industry", label: "Industry", width: 150, render: (r) => (
       <span className="text-slate-300 text-xs" title={r.sector || ""}>{r.industry || "—"}</span>
     ) },
   { key: "verdict", label: "Signal", width: 90, render: (r) => <SignalBadge verdict={r.verdict as Verdict} /> },
-  { key: "close", label: "Price", num: true, render: (r) => fmt.rupee(r.close) },
+  { key: "close", label: "Price", num: true, refreshAsset: "nse_raw_prices", render: (r) => isUS(r.exchange) ? `$${fmt.num(r.close)}` : fmt.rupee(r.close) },
   { key: "day_change_pct", label: "Day %", num: true, render: (r) => fmt.pct(r.day_change_pct, 2),
     cls: (v) => (v > 0 ? "text-buy" : v < 0 ? "text-sell" : "") },
+  { key: "volume_ratio", label: "Volume", width: 90, num: true,
+    render: (r) => r.volume_ratio == null ? "—" : `${r.volume_ratio.toFixed(1)}x avg`,
+    cls: (v) => (v == null ? "" : v >= 1.5 ? "text-buy" : v <= 0.5 ? "text-sell" : "") },
   { key: "week52_high", label: "52w H", num: true, render: (r) => fmt.num(r.week52_high) },
   { key: "week52_low", label: "52w L", num: true, render: (r) => fmt.num(r.week52_low) },
-  { key: "rsi_14", label: "RSI", num: true, render: (r) => fmt.num(r.rsi_14, 1),
+  { key: "rsi_14", label: "RSI", num: true, refreshAsset: "nse_technical_indicators", render: (r) => fmt.num(r.rsi_14, 1),
     cls: (v) => (v != null && v < 30 ? "text-buy" : v != null && v > 70 ? "text-sell" : "") },
   { key: "macd", label: "MACD", num: true, render: (r) => fmt.num(r.macd, 2) },
   { key: "bb_position", label: "BB %", num: true, render: (r) => fmt.num(r.bb_position, 0) },
   { key: "sma_50", label: "SMA50", num: true, render: (r) => fmt.num(r.sma_50, 0) },
   { key: "sma_200", label: "SMA200", num: true, render: (r) => fmt.num(r.sma_200, 0) },
-  { key: "pe_ratio", label: "P/E", num: true, render: (r) => fmt.num(r.pe_ratio, 1) },
+  { key: "pe_ratio", label: "P/E", num: true, refreshAsset: "nse_fundamentals", render: (r) => fmt.num(r.pe_ratio, 1) },
   { key: "pe_percentile", label: "P/E %ile", num: true, render: (r) => r.pe_percentile == null ? "—" : `${r.pe_percentile.toFixed(0)}`,
     cls: (v) => (v == null ? "" : v <= 25 ? "text-buy" : v >= 75 ? "text-sell" : "text-watch") },
   { key: "pb_ratio", label: "P/B", num: true, render: (r) => fmt.num(r.pb_ratio, 1) },
   { key: "roe", label: "ROE", num: true, render: (r) => fmt.num(r.roe, 1) },
   { key: "debt_to_equity", label: "D/E", num: true, render: (r) => fmt.num(r.debt_to_equity, 2) },
   { key: "market_cap", label: "Mkt Cap", num: true, render: (r) => fmt.num(r.market_cap, 0) },
-  { key: "sentiment_score", label: "News", num: true, render: (r) =>
+  { key: "sentiment_score", label: "News", num: true, refreshAsset: "nse_news_sentiment", render: (r) =>
       r.sentiment ? <span className={sentCls(r.sentiment)}>{r.sentiment[0].toUpperCase()}{r.sentiment_score != null ? ` ${r.sentiment_score.toFixed(2)}` : ""}</span> : "—" },
-  { key: "composite_score", label: "Score", num: true, render: (r) => fmt.num(r.composite_score, 1),
+  { key: "composite_score", label: "Score", num: true, refreshAsset: "nse_signals", render: (r) => fmt.num(r.composite_score, 1),
     cls: (v) => (v != null && v >= 60 ? "text-buy" : "") },
   { key: "rsi_rank", label: "RSI rk", num: true, render: (r) => fmt.num(r.rsi_rank, 0) },
   { key: "momentum_score", label: "Mom rk", num: true, render: (r) => fmt.num(r.momentum_score, 0) },
   { key: "macd_rank", label: "MACD rk", num: true, render: (r) => fmt.num(r.macd_rank, 0) },
-  { key: "insider_net", label: "Insider", num: true, render: (r) =>
+  { key: "insider_net", label: "Insider", num: true, refreshAsset: "nse_insider_trades", render: (r) =>
       r.insider_buys || r.insider_sells
         ? <span className={r.insider_net > 0 ? "text-buy" : r.insider_net < 0 ? "text-sell" : ""}>{r.insider_buys}B/{r.insider_sells}S</span>
         : "—" },
@@ -78,6 +86,7 @@ export default function Dashboard() {
   const [sortKey, setSortKey] = useState("composite_score");
   const [dir, setDir] = useState<Dir>("desc");
   const [verdict, setVerdict] = useState<Verdict | "ALL">("ALL");
+  const [market, setMarket] = useState<"all" | "india" | "us">("india");
   const [q, setQ] = useState("");
   const [minScore, setMinScore] = useState("");
 
@@ -109,6 +118,7 @@ export default function Dashboard() {
   const rows = useMemo(() => {
     if (!data) return [];
     let r = data.stocks;
+    if (market !== "all") r = r.filter((x) => marketOf(x.exchange) === market);
     if (verdict !== "ALL") r = r.filter((x) => x.verdict === verdict);
     if (q) r = r.filter((x) => x.symbol.toLowerCase().includes(q.toLowerCase()) || (x.name || "").toLowerCase().includes(q.toLowerCase()) || (x.industry || "").toLowerCase().includes(q.toLowerCase()));
     if (minScore) r = r.filter((x) => (x.composite_score ?? -1) >= Number(minScore));
@@ -121,7 +131,7 @@ export default function Dashboard() {
       return dir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [data, verdict, q, minScore, sortKey, dir]);
+  }, [data, market, verdict, q, minScore, sortKey, dir]);
 
   if (err) return <Error msg={err} />;
   if (!data) return <Loading />;
@@ -171,7 +181,7 @@ export default function Dashboard() {
         <div className="flex items-center gap-4">
           {data.fii_dii && (
             <div className="text-xs text-slate-400">
-              FII <span className={Number(data.fii_dii.fii_net) >= 0 ? "text-buy" : "text-sell"}>{Number(data.fii_dii.fii_net) >= 0 ? "▲" : "▼"} {fmt.num(Number(data.fii_dii.fii_net), 0)}</span>
+              <span className="mr-1">🇮🇳</span>FII <span className={Number(data.fii_dii.fii_net) >= 0 ? "text-buy" : "text-sell"}>{Number(data.fii_dii.fii_net) >= 0 ? "▲" : "▼"} {fmt.num(Number(data.fii_dii.fii_net), 0)}</span>
               {" · "}DII <span className={Number(data.fii_dii.dii_net) >= 0 ? "text-buy" : "text-sell"}>{Number(data.fii_dii.dii_net) >= 0 ? "▲" : "▼"} {fmt.num(Number(data.fii_dii.dii_net), 0)}</span>
             </div>
           )}
@@ -183,6 +193,15 @@ export default function Dashboard() {
 
       {/* Filters + column controls */}
       <div className="flex flex-wrap items-center gap-2">
+        {/* Market filter (default India) */}
+        <div className="flex rounded-md overflow-hidden border border-edge mr-1">
+          {([["india", "🇮🇳 India"], ["us", "🇺🇸 US"], ["all", "All"]] as const).map(([m, lbl]) => (
+            <button key={m} onClick={() => setMarket(m)}
+              className={`px-3 py-1 text-xs ${market === m ? "bg-edge text-slate-100" : "text-slate-400 hover:text-slate-200"}`}>
+              {lbl}
+            </button>
+          ))}
+        </div>
         {FILTERS.map((f) => (
           <button key={f} onClick={() => setVerdict(f)}
             className={`px-3 py-1 rounded-md text-xs ${verdict === f ? "bg-edge text-slate-100" : "text-slate-400 hover:text-slate-200"}`}>

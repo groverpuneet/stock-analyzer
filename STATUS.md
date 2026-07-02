@@ -83,3 +83,390 @@
 - ⚠️ WAITING ON USER: `.env` needs TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (digest + commands),
   and GEMINI_API_KEY / GROQ_API_KEY (AI queries). End-to-end Telegram send/receive can only be
   verified once these are added. See ENGINEERING.md "Telegram bot" + .env.example for how to obtain them.
+### Watchdog retry — 2026-06-29 01:57
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Data quality audit — nse_daily @ 2026-06-29 01:57
+- gaps: {'ohlcv': 0, 'indicators': 0, 'signals': 94, 'news': 67} (total 161)
+- 4 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60), CUB(75)
+
+### Watchdog retry — 2026-06-29 02:28
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Watchdog retry — 2026-06-29 03:13
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Watchdog retry — 2026-06-29 03:47
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Watchdog retry — 2026-06-29 04:17
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Watchdog retry — 2026-06-29 04:59
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Watchdog retry — 2026-06-29 05:45
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Watchdog retry — 2026-06-29 06:16
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Data quality audit — nse_daily @ 2026-06-29 06:44
+- gaps: {'ohlcv': 0, 'indicators': 0, 'signals': 94, 'news': 66} (total 160)
+- 4 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60), CUB(75)
+
+### Watchdog retry — 2026-06-29 09:31
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Watchdog retry — 2026-06-29 10:05
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Watchdog retry — 2026-06-29 10:48
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Watchdog retry — 2026-06-29 11:22
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Watchdog retry — 2026-06-29 12:09
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 12:51
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 13:28
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 14:07
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 14:47
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 15:33
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 16:11
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 16:55
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 17:26
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 18:08
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 18:39
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 19:19
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 19:56
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 20:30
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 21:14
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 22:00
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 22:34
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-29 23:17
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 00:02
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 00:36
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 01:17
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 02:03
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 02:34
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 03:04
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 03:37
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 04:21
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 05:07
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 05:42
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 06:24
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 07:07
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 07:40
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 08:24
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 09:10
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 09:43
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 10:27
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 11:13
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 11:47
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 12:20
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 12:58
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 13:35
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 14:13
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 14:47
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 15:19
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 15:59
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 16:30
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 17:01
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 17:43
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 18:22
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 18:54
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 19:37
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 21:07
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 21:37
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 22:07
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 22:45
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 23:16
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-06-30 23:50
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-07-01 00:28
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-07-01 01:01
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-07-01 01:33
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-07-01 02:08
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-07-01 02:46
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-07-01 03:18
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-07-01 03:53
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-07-01 04:33
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-07-01 05:05
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Watchdog retry — 2026-07-02 00:34
+  - nse_fno_job: stale source(s) fno_data
+  - nse_daily_job: stale source(s) block_deals, news_sentiment, kite_quotes, kite_ohlcv, tech_indicators, signals, fii_dii
+  - us_daily_job: stale source(s) sec_form4, us_prices
+
+### Data quality audit — nse_daily @ 2026-07-02 00:34
+- gaps: {'ohlcv': 0, 'indicators': 0, 'signals': 94, 'news': 58} (total 152)
+- 4 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60), CUB(75)
+
+### Data quality audit — nse_daily @ 2026-07-02 00:34
+- gaps: {'ohlcv': 0, 'indicators': 0, 'signals': 94, 'news': 58} (total 152)
+- 4 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60), CUB(75)
+
+### Data quality audit — nse_weekly @ 2026-07-02 00:34
+- gaps: {'fundamentals': 4, 'shareholding': 3} (total 7)
+- 4 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60), CUB(75)
+
+### Watchdog retry — 2026-07-02 00:36
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+  - us_daily_job: stale source(s) us_prices
+
+### Data quality audit — nse_daily @ 2026-07-02 00:36
+- gaps: {'ohlcv': 0, 'indicators': 0, 'signals': 94, 'news': 58} (total 152)
+- 4 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60), CUB(75)
+
+## 2026-07-02 — Session K: India/US demarcation + FII/DII trend + US watchlist + volume indicators
+
+### Volume indicators (migration 0022)
+- Added technical_indicators.volume_sma_20, volume_ratio, volume_trend, obv, vwap
+- Added stock_scores.volume_signal (VOLUME_BREAKOUT / VOLUME_BREAKDOWN / LOW_VOLUME_MOVE)
+- analysis/calculate_indicators.py computes all volume indicators; volume_signal upserts onto
+  the stock's latest score row. Backfilled 94 NSE + all US watchlist stocks (full ~2yr history).
+
+### FII/DII day-over-day trend
+- niftytrader webapi added as a 30-day history source (NSE API only returns the latest day).
+  fii_dii_collector now backfills the 30-day window on every run. fii_dii_flows: 4 -> 30 rows.
+- GET /api/macro/fii-dii-trend — 30d series + 5d/10d MAs + 5d/10d cumulative + buy/sell streaks
+  + today-vs-yesterday. Rendered on Macro page (green/red bars, MA overlays, summary stats).
+- FII selling-streak >=3 already surfaces as a Risk Alert.
+
+### US watchlist add (MELI etc.)
+- webapp/backend/us_stock_add.py: Polygon reference/tickers typeahead + add flow
+  (insert stock, fetch 2yr OHLCV, compute indicators, add to watchlist). Endpoints:
+  GET /api/watchlist/search-us, POST /api/watchlist/add-us. Verified MELI (501 bars, 482 ind).
+- Watchlist page searches NSE + US simultaneously with market badges.
+
+### India/US demarcation
+- Signals/Dashboard: market filter (India default / US / All), Market badge column, Volume (x avg)
+  column; dashboard endpoint now includes US stocks + volume + volume_signal + exchange.
+- Macro: separate 🇮🇳 India and 🇺🇸 US sections (US = FRED). FII/DII trend under India.
+- Opportunities: market filter + badges (exchange added to endpoint).
+- Stock detail: VWAP line on price chart, colour-coded volume bars + 20d avg overlay, OBV panel.
+- Raw data tables: exchange/market columns render as flag badges.
+- Smart Money (tabs), Risk Alerts (badges+filter), Fear&Greed (labels) already demarcated.

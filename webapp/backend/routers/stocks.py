@@ -57,7 +57,8 @@ def detail(stock_id: int):
     )
     indicators = query_all(
         "SELECT date, rsi_14, sma_20, sma_50, sma_200, macd, macd_signal, "
-        "macd_histogram, bollinger_upper, bollinger_middle, bollinger_lower "
+        "macd_histogram, bollinger_upper, bollinger_middle, bollinger_lower, "
+        "volume_sma_20, volume_ratio, volume_trend, obv, vwap "
         "FROM technical_indicators WHERE stock_id = %s ORDER BY date DESC LIMIT 250",
         (stock_id,),
     )

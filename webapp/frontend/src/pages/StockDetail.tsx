@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
-  Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Bar, BarChart,
+  Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Bar,
+  ComposedChart, Cell,
 } from "recharts";
 import { api, fmt } from "../api";
 import SignalBadge from "../components/SignalBadge";
+import MarketBadge, { marketOf } from "../components/MarketBadge";
 import { Loading, Error } from "./Dashboard";
 import LastUpdated from "../components/LastUpdated";
 import PeHistoryChart from "../components/PeHistoryChart";
@@ -30,19 +32,30 @@ export default function StockDetail() {
 
   const { stock, signal, prices, indicators, news, insider, shareholding, fundamentals } = d;
 
+  const us = marketOf(stock.exchange) === "us";
+  const money = (v: any) => us ? (v == null ? "—" : `$${fmt.num(v)}`) : fmt.rupee(v);
+
   // Merge price + indicator series by date for charts.
   const indByDate: Record<string, any> = {};
   indicators.forEach((r: any) => (indByDate[r.date] = r));
-  const series = prices.map((p: any) => ({
-    date: p.date.slice(5), // MM-DD
-    close: num(p.close),
-    volume: num(p.volume),
-    sma50: num(indByDate[p.date]?.sma_50),
-    sma200: num(indByDate[p.date]?.sma_200),
-    rsi: num(indByDate[p.date]?.rsi_14),
-    macd: num(indByDate[p.date]?.macd),
-    macd_signal: num(indByDate[p.date]?.macd_signal),
-  }));
+  const series = prices.map((p: any, i: number) => {
+    const prevClose = i > 0 ? num(prices[i - 1].close) : null;
+    const close = num(p.close);
+    return {
+      date: p.date.slice(5), // MM-DD
+      close,
+      up: prevClose == null || close == null ? true : close >= prevClose, // day direction
+      volume: num(p.volume),
+      volume_sma20: num(indByDate[p.date]?.volume_sma_20),
+      obv: num(indByDate[p.date]?.obv),
+      vwap: num(indByDate[p.date]?.vwap),
+      sma50: num(indByDate[p.date]?.sma_50),
+      sma200: num(indByDate[p.date]?.sma_200),
+      rsi: num(indByDate[p.date]?.rsi_14),
+      macd: num(indByDate[p.date]?.macd),
+      macd_signal: num(indByDate[p.date]?.macd_signal),
+    };
+  });
   const latestSh = shareholding[0];
 
   return (
@@ -52,7 +65,7 @@ export default function StockDetail() {
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-slate-100">{stock.symbol}</h1>
             {signal && <SignalBadge verdict={signal.verdict} />}
-            <span className="text-xs text-slate-500">{stock.exchange}</span>
+            <MarketBadge exchange={stock.exchange} />
           </div>
           <p className="text-sm text-slate-400">{stock.name}</p>
           {(stock.sector || stock.industry) && (
@@ -64,7 +77,7 @@ export default function StockDetail() {
         </div>
         {signal && (
           <div className="text-right">
-            <div className="text-2xl font-semibold text-slate-100">{fmt.rupee(signal.close)}</div>
+            <div className="text-2xl font-semibold text-slate-100">{money(signal.close)}</div>
             <div className="text-xs text-slate-400">
               RSI {fmt.num(signal.rsi_14, 1)} · MACD {fmt.num(signal.macd, 2)}
             </div>
@@ -87,8 +100,8 @@ export default function StockDetail() {
       {tab === "Concalls" && <Concalls stockId={Number(id)} />}
 
       {tab === "Overview" && <>
-      {/* Price + moving averages */}
-      <Panel title="Price & moving averages (last ~250 sessions)">
+      {/* Price + moving averages + VWAP */}
+      <Panel title="Price, moving averages & VWAP (last ~250 sessions)">
         <ResponsiveContainer width="100%" height={260}>
           <LineChart data={series} margin={{ top: 5, right: 10, bottom: 0, left: -10 }}>
             <CartesianGrid stroke="#1f2c44" />
@@ -98,6 +111,7 @@ export default function StockDetail() {
             <Line type="monotone" dataKey="close" stroke="#818cf8" dot={false} strokeWidth={2} name="Close" />
             <Line type="monotone" dataKey="sma50" stroke="#34d399" dot={false} strokeWidth={1} name="SMA50" />
             <Line type="monotone" dataKey="sma200" stroke="#f59e0b" dot={false} strokeWidth={1} name="SMA200" />
+            <Line type="monotone" dataKey="vwap" stroke="#22d3ee" dot={false} strokeWidth={1} strokeDasharray="4 3" name="VWAP(20)" />
           </LineChart>
         </ResponsiveContainer>
       </Panel>
@@ -157,18 +171,39 @@ export default function StockDetail() {
       </Panel>
 
       <div className="grid lg:grid-cols-2 gap-5">
-        {/* Volume */}
-        <Panel title="Volume">
+        {/* Volume — bars coloured by day direction + 20d average overlay */}
+        <Panel title="Volume (green = up day, red = down day) + 20d avg">
           <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={series} margin={{ top: 5, right: 10, bottom: 0, left: -10 }}>
+            <ComposedChart data={series} margin={{ top: 5, right: 10, bottom: 0, left: -10 }}>
+              <CartesianGrid stroke="#1f2c44" />
               <XAxis dataKey="date" tick={tick} minTickGap={40} />
               <YAxis tick={tick} />
               <Tooltip contentStyle={ttStyle} />
-              <Bar dataKey="volume" fill="#3b4d70" />
-            </BarChart>
+              <Bar dataKey="volume" name="Volume">
+                {series.map((r: any, i: number) => (
+                  <Cell key={i} fill={r.up ? "#16a34a99" : "#dc262699"} />
+                ))}
+              </Bar>
+              <Line type="monotone" dataKey="volume_sma20" stroke="#eab308" dot={false} strokeWidth={1.5} name="Vol SMA20" />
+            </ComposedChart>
           </ResponsiveContainer>
         </Panel>
 
+        {/* OBV — On Balance Volume */}
+        <Panel title="On Balance Volume (OBV)">
+          <ResponsiveContainer width="100%" height={160}>
+            <LineChart data={series} margin={{ top: 5, right: 10, bottom: 0, left: -10 }}>
+              <CartesianGrid stroke="#1f2c44" />
+              <XAxis dataKey="date" tick={tick} minTickGap={40} />
+              <YAxis tick={tick} domain={["auto", "auto"]} tickFormatter={(v) => fmt.num(v, 0)} width={48} />
+              <Tooltip contentStyle={ttStyle} />
+              <Line type="monotone" dataKey="obv" stroke="#38bdf8" dot={false} strokeWidth={2} name="OBV" />
+            </LineChart>
+          </ResponsiveContainer>
+        </Panel>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-5">
         {/* Shareholding */}
         <Panel title={`Shareholding ${latestSh ? `(${latestSh.quarter_end})` : ""}`}>
           {latestSh ? (

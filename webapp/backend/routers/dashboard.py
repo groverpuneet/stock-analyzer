@@ -19,10 +19,10 @@ def _f(v):
 @router.get("")
 def dashboard(watchlist: str = "Default"):
     stocks = query_all(
-        "SELECT s.id, s.tradingsymbol AS symbol, s.name, s.exchange, s.segment, "
+        "SELECT s.id, s.tradingsymbol AS symbol, s.name, s.exchange, s.market, s.segment, "
         "s.sector, s.industry "
         "FROM watchlist w JOIN stocks s ON w.stock_id = s.id "
-        "WHERE w.name = %s AND s.exchange = 'NSE' ORDER BY s.tradingsymbol",
+        "WHERE w.name = %s ORDER BY s.tradingsymbol",
         (watchlist,),
     )
     ids = [s["id"] for s in stocks]
@@ -35,6 +35,7 @@ def dashboard(watchlist: str = "Default"):
         SELECT stock_id,
                (array_agg(close ORDER BY date DESC))[1] AS close,
                (array_agg(close ORDER BY date DESC))[2] AS prev_close,
+               (array_agg(volume ORDER BY date DESC))[1] AS volume,
                MAX(high) FILTER (WHERE date >= CURRENT_DATE - INTERVAL '365 days') AS w52_high,
                MIN(low)  FILTER (WHERE date >= CURRENT_DATE - INTERVAL '365 days') AS w52_low
         FROM daily_prices WHERE stock_id = ANY(%s) GROUP BY stock_id
@@ -43,7 +44,8 @@ def dashboard(watchlist: str = "Default"):
     tech = {r["stock_id"]: r for r in query_all(
         """
         SELECT DISTINCT ON (stock_id) stock_id, rsi_14, macd, macd_signal,
-               sma_20, sma_50, sma_200, bollinger_upper, bollinger_lower
+               sma_20, sma_50, sma_200, bollinger_upper, bollinger_lower,
+               volume_ratio, volume_trend
         FROM technical_indicators WHERE stock_id = ANY(%s) ORDER BY stock_id, date DESC
         """, (ids,))}
 
@@ -75,7 +77,8 @@ def dashboard(watchlist: str = "Default"):
     scores = {r["stock_id"]: r for r in query_all(
         """
         SELECT DISTINCT ON (stock_id) stock_id, composite_score, rsi_rank,
-               momentum_score, volume_rank, macd_rank, pe_percentile, data_completeness_score
+               momentum_score, volume_rank, macd_rank, pe_percentile,
+               data_completeness_score, volume_signal
         FROM stock_scores WHERE stock_id = ANY(%s) ORDER BY stock_id, date DESC
         """, (ids,))}
 
@@ -114,11 +117,16 @@ def dashboard(watchlist: str = "Default"):
         buys, sells = int(ins.get("buys") or 0), int(ins.get("sells") or 0)
         out.append({
             "stock_id": sid, "symbol": s["symbol"], "name": s["name"],
+            "exchange": s.get("exchange"), "market": s.get("market"),
             "sector": s.get("sector"), "industry": s.get("industry"),
             "verdict": sig["verdict"] if sig else "NEUTRAL",
             # price
             "close": close, "day_change_pct": day_change,
             "week52_high": _f(p.get("w52_high")), "week52_low": _f(p.get("w52_low")),
+            # volume
+            "volume": int(p["volume"]) if p.get("volume") is not None else None,
+            "volume_ratio": _f(t.get("volume_ratio")), "volume_trend": t.get("volume_trend"),
+            "volume_signal": sc.get("volume_signal"),
             # technical
             "rsi_14": _f(t.get("rsi_14")), "macd": _f(t.get("macd")),
             "macd_signal": _f(t.get("macd_signal")), "bb_position": bb_pos,

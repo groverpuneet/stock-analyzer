@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/opportunities", tags=["opportunities"])
 def opportunities(watchlist: str = "Default"):
     sentiment_movers = query_all(
         """
-        SELECT s.id AS stock_id, s.tradingsymbol AS symbol, s.name,
+        SELECT s.id AS stock_id, s.tradingsymbol AS symbol, s.name, s.exchange,
                ns.date, ns.headline, ns.source, ns.url,
                ns.sentiment, ns.sentiment_score, ns.relevance_score
         FROM news_sentiment ns
@@ -33,7 +33,7 @@ def opportunities(watchlist: str = "Default"):
     )
     momentum = query_all(
         """
-        SELECT s.id AS stock_id, s.tradingsymbol AS symbol, s.name,
+        SELECT s.id AS stock_id, s.tradingsymbol AS symbol, s.name, s.exchange,
                sc.date, sc.composite_score, sc.rsi_rank, sc.momentum_score,
                sc.volume_rank, sc.macd_rank
         FROM stock_scores sc
@@ -47,7 +47,7 @@ def opportunities(watchlist: str = "Default"):
     )
     recent_deals = query_all(
         """
-        SELECT s.id AS stock_id, s.tradingsymbol AS symbol, s.name,
+        SELECT s.id AS stock_id, s.tradingsymbol AS symbol, s.name, s.exchange,
                bd.date, bd.deal_type, bd.client_name, bd.transaction,
                bd.quantity, bd.price
         FROM bulk_deals bd

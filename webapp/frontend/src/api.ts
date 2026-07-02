@@ -98,6 +98,15 @@ export const api = {
   stock: (id: number) => get<any>(`/api/stocks/${id}`),
   search: (q: string) => get<any[]>(`/api/stocks/search?q=${encodeURIComponent(q)}`),
   macro: () => get<any>("/api/macro"),
+  fiiDiiTrend: (limit = 30) => get<any>(`/api/macro/fii-dii-trend?limit=${limit}`),
+  usStockSearch: (q: string) => get<any[]>(`/api/watchlist/search-us?q=${encodeURIComponent(q)}`),
+  addUsStock: (ticker: string, name = "Default") =>
+    fetch("/api/watchlist/add-us", {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ticker, name }),
+    }),
   watchlist: (name = "Default") => get<any[]>(`/api/watchlist?name=${encodeURIComponent(name)}`),
   watchlistNames: () => get<string[]>("/api/watchlist/names"),
   addWatchlist: (stock_id: number, name: string) =>
@@ -111,6 +120,7 @@ export const api = {
     fetch(`/api/watchlist/${entryId}`, { method: "DELETE", credentials: "include" }),
   opportunities: () => get<any>("/api/opportunities"),
   lastUpdated: (page: string) => get<any>(`/api/refresh/last?page=${page}`),
+  refreshLast: (sources: string) => get<any>(`/api/refresh/last?sources=${encodeURIComponent(sources)}`),
   refreshSources: () => get<any>("/api/refresh/sources"),
   refreshStatus: () => get<any>("/api/refresh/status"),
   trigger: (source: string) =>
@@ -124,7 +134,16 @@ export const api = {
   dashboard: () => get<any>("/api/dashboard"),
   peHistory: (id: number) => get<any>(`/api/stocks/${id}/pe-history`),
   triggerAll: () => fetch("/api/refresh/trigger-all", { method: "POST", credentials: "include" }).then((r) => r.json()),
+  triggerRegion: (region: string) =>
+    fetch(`/api/refresh/trigger-region?region=${encodeURIComponent(region)}`, { method: "POST", credentials: "include" }).then((r) => r.json()),
   triggerFailed: () => fetch("/api/refresh/trigger-failed", { method: "POST", credentials: "include" }).then((r) => r.json()),
+  // Generic Dagster materialization (used by all 🔄 refresh buttons)
+  materialize: (body: { asset?: string; job?: string }) =>
+    fetch("/api/dagster/materialize", {
+      method: "POST", credentials: "include",
+      headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+    }).then((r) => r.json()),
+  dagsterRunStatus: (runId: string) => get<any>(`/api/dagster/run-status/${runId}`),
   triggerFull: () => fetch("/api/refresh/trigger-full", { method: "POST", credentials: "include" }).then((r) => r.json()),
   triggerAudit: () => fetch("/api/refresh/trigger-audit", { method: "POST", credentials: "include" }).then((r) => r.json()),
   refreshControl: () => get<any>("/api/refresh/control"),

@@ -18,10 +18,32 @@ class WatchlistAdd(BaseModel):
     notes: str | None = None
 
 
+class UsStockAdd(BaseModel):
+    ticker: str
+    name: str = "Default"
+
+
 @router.get("/names")
 def names():
     rows = query_all("SELECT DISTINCT name FROM watchlist ORDER BY name")
     return [r["name"] for r in rows]
+
+
+@router.get("/search-us")
+def search_us(q: str = "", limit: int = 10):
+    """Polygon.io typeahead for US tickers not yet in the local universe."""
+    from us_stock_add import search_us_tickers
+    return search_us_tickers(q, limit)
+
+
+@router.post("/add-us")
+def add_us(item: UsStockAdd):
+    """Resolve a US ticker via Polygon, fetch 2yr OHLCV + indicators, add to watchlist."""
+    from us_stock_add import add_us_stock
+    try:
+        return add_us_stock(item.ticker, item.name)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(400, f"Failed to add {item.ticker}: {e}")
 
 
 @router.get("")
