@@ -96,6 +96,7 @@ export const api = {
   signals: (verdict?: string) =>
     get<SignalsResponse>(`/api/signals${verdict ? `?verdict=${verdict}` : ""}`),
   signalsExplained: () => get<{ stocks: any[] }>("/api/signals/explained"),
+  signalMarketContext: () => get<{ reasoning: string[]; key_metrics: Record<string, any>; contrary: string[] }>("/api/signals/market-context"),
   signalExplanation: (id: number, horizon: string) =>
     get<any>(`/api/signals/explanation/${id}?horizon=${horizon}`),
   stock: (id: number) => get<any>(`/api/stocks/${id}`),

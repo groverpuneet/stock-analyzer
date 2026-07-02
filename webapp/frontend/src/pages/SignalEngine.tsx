@@ -144,6 +144,29 @@ function PillarBlock({ title, score, reasoning }: { title: string; score: any; r
   );
 }
 
+// Flows pillar rendered as two sub-sections: 🌍 Market Context (macro) + 🎯 Stock-Specific
+function FlowsBlock({ score, reasoning, symbol }: { score: any; reasoning: any; symbol: string }) {
+  const lines: string[] = reasoning || [];
+  const macro = lines.filter((l) => l.includes("[MACRO]")).map((l) => l.replace("[MACRO] ", ""));
+  const stock = lines.filter((l) => l.includes("[STOCK]")).map((l) => l.replace("[STOCK] ", ""));
+  const other = lines.filter((l) => !l.includes("[MACRO]") && !l.includes("[STOCK]"));
+  const Sub = ({ title, items }: { title: string; items: string[] }) =>
+    items.length === 0 ? null : (
+      <div className="ml-2 mt-1 border-l border-edge pl-2">
+        <div className="text-xs font-semibold text-slate-400 mb-0.5">{title}</div>
+        <ul className="space-y-0.5">{items.map((t, i) => <li key={i} className="text-xs text-slate-300">{t}</li>)}</ul>
+      </div>
+    );
+  return (
+    <div className="border-t border-edge pt-2">
+      <div className="text-sm font-semibold text-slate-200 mb-1">💰 Flows &amp; Sentiment <span className={pillarColor(score == null ? null : Number(score))}>({score == null ? "n/a" : `${Number(score).toFixed(0)}/100`})</span></div>
+      <Sub title="🌍 Market Context (applies to all stocks)" items={macro} />
+      <Sub title={`🎯 Stock-Specific (${symbol} only)`} items={stock} />
+      {other.length > 0 && <ul className="space-y-0.5 mt-1">{other.map((t, i) => <li key={i} className="text-xs text-slate-300">{t}</li>)}</ul>}
+    </div>
+  );
+}
+
 function ExplanationPanel({ stockId, horizon, onClose }: { stockId: number; horizon: Horizon; onClose: () => void }) {
   const [d, setD] = useState<any>(null);
   const [err, setErr] = useState<string>();
@@ -178,7 +201,7 @@ function ExplanationPanel({ stockId, horizon, onClose }: { stockId: number; hori
 
             <PillarBlock title="📊 Technical" score={d.technical_score} reasoning={d.technical_reasoning} />
             <PillarBlock title="📈 Fundamental" score={d.fundamental_score} reasoning={d.fundamental_reasoning} />
-            <PillarBlock title="💰 Flows & Sentiment" score={d.flow_score} reasoning={d.flow_reasoning} />
+            <FlowsBlock score={d.flow_score} reasoning={d.flow_reasoning} symbol={d.symbol} />
             <PillarBlock title="🌐 External Sentiment" score={d.external_score} reasoning={d.external_reasoning} />
 
             {d.contrary_indicators?.length > 0 && (

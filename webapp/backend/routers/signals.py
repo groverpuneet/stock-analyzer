@@ -43,6 +43,25 @@ def explained(watchlist: str = "Default"):
     return {"stocks": list(by_stock.values())}
 
 
+@router.get("/market-context")
+def market_context():
+    """Market-wide macro inputs used in ALL stock signals today (from the flows engine)."""
+    import os
+    import sys
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from signals.flows import compute_macro_flows
+    from signals.util import get_conn
+    conn = get_conn()
+    try:
+        m = compute_macro_flows(conn)
+    finally:
+        conn.close()
+    reasoning = [f"{icon} {text}" for _pts, text, icon in m["items"]]
+    return {"reasoning": reasoning, "key_metrics": m["key_metrics"], "contrary": m["contrary"]}
+
+
 @router.get("/explanation/{stock_id}")
 def explanation(stock_id: int, horizon: str = "SHORT"):
     """Full explanation for one stock + horizon (all pillar reasoning, contrary, what-would-change)."""

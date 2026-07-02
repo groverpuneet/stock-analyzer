@@ -27,13 +27,10 @@ def score_fundamental(conn, stock_id: int) -> dict:
             "AND surprise_pct IS NOT NULL ORDER BY results_date DESC LIMIT 1", (stock_id,))
         earn = cur.fetchone()
 
+        # NOTE: analyst consensus + FII%/DII% ownership trends now live in the FLOWS pillar
+        # (stock-specific section) to avoid double-counting; fundamental keeps promoter/pledging.
         cur.execute(
-            "SELECT consensus_rating, upside_pct, buy_count, sell_count, analyst_count "
-            "FROM analyst_targets WHERE stock_id=%s ORDER BY date DESC LIMIT 1", (stock_id,))
-        an = cur.fetchone()
-
-        cur.execute(
-            "SELECT fii_pct, dii_pct, promoter_pct FROM shareholding_pattern "
+            "SELECT promoter_pct FROM shareholding_pattern "
             "WHERE stock_id=%s ORDER BY quarter_end DESC LIMIT 2", (stock_id,))
         sh = [dict(x) for x in cur.fetchall()]
 
@@ -112,27 +109,8 @@ def score_fundamental(conn, stock_id: int) -> dict:
         elif s < -10:
             r.add(-8, f"Last result missed estimates by {abs(s):.0f}%")
 
-    # ── Analyst conviction ──
-    if an:
-        up = f(an["upside_pct"])
-        rating = (an["consensus_rating"] or "").upper()
-        if up is not None:
-            r.metric("analyst_upside_pct", round(up, 1))
-        if rating in ("STRONG_BUY", "BUY") and (up or 0) > 20:
-            r.add(8, f"Analyst consensus {rating} with {up:.0f}% upside")
-        elif rating in ("SELL", "STRONG_SELL"):
-            r.add(-8, f"Analyst consensus {rating}")
-
-    # ── Ownership trends ──
+    # ── Promoter ownership trend (analyst + FII% moved to flows pillar) ──
     if len(sh) >= 2:
-        fii0, fii1 = f(sh[0]["fii_pct"]), f(sh[1]["fii_pct"])
-        if fii0 is not None and fii1 is not None:
-            d = fii0 - fii1
-            r.metric("fii_pct", round(fii0, 2))
-            if d > 0.5:
-                r.add(6, f"FII holding rising ({fii1:.1f}%→{fii0:.1f}%) — institutional interest")
-            elif d < -0.5:
-                r.add(-5, f"FII holding falling ({fii1:.1f}%→{fii0:.1f}%)")
         pr0, pr1 = f(sh[0]["promoter_pct"]), f(sh[1]["promoter_pct"])
         if pr0 is not None and pr1 is not None and pr0 - pr1 < -0.5:
             r.add(-4, f"Promoter holding falling ({pr1:.1f}%→{pr0:.1f}%)", icon="⚠️")

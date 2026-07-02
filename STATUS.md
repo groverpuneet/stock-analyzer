@@ -514,3 +514,17 @@
   slide-in explanation panel (4 pillars + contrary + what-would-change + advisor coming-soon).
 - Legacy generate_signals.py documented in ENGINEERING ("Signal Generation — Legacy").
 - Installed deps: duckduckgo-search, vaderSentiment.
+
+### Watchdog retry — 2026-07-02 02:06
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+## 2026-07-02 — Session L.1: macro vs stock-specific separation in flows pillar
+- signals/flows.py split: compute_macro_flows (FII/DII 5d+streak, India Fear&Greed, VIX, PCR,
+  Nifty breadth %>SMA50; cached per day) + compute_stock_flows (insider, bulk, SAST, 13F,
+  FII%/DII% QoQ, MF MoM, analyst target/upside, news, Google Trends). Reasoning prefixed
+  [MACRO]/[STOCK]. Analyst + FII%/DII trend moved out of fundamental → flows (no double-count).
+- New GET /api/signals/market-context (macro inputs used in ALL signals today).
+- Signal Engine panel: flows shown as 🌍 Market Context + 🎯 Stock-Specific sub-sections.
+- Macro page: "📊 Current Market Context for Signal Engine" card.
+- Recomputed 98 stocks × 3 horizons (external all cached; avg F62.7 FL48.2). SBIN verified:
+  6 [MACRO] + 5 [STOCK] flow lines.

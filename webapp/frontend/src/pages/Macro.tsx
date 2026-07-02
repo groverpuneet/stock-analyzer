@@ -23,10 +23,12 @@ const LABELS: Record<string, string> = {
 export default function Macro() {
   const [d, setD] = useState<any>(null);
   const [trend, setTrend] = useState<any>(null);
+  const [ctx, setCtx] = useState<any>(null);
   const [err, setErr] = useState<string>();
   const load = useCallback(() => {
     api.macro().then(setD).catch((e) => setErr(String(e)));
     api.fiiDiiTrend(30).then(setTrend).catch(() => setTrend(null));
+    api.signalMarketContext().then(setCtx).catch(() => setCtx(null));
   }, []);
   useEffect(() => { load(); }, [load]);
   if (err) return <Error msg={err} />;
@@ -46,6 +48,32 @@ export default function Macro() {
           <RefreshAll assets={PAGE_ASSETS.macro} onDone={load} />
         </div>
       </div>
+
+      {/* Market context feeding the signal engine (same macro inputs used in ALL stock signals today) */}
+      {ctx && (ctx.reasoning?.length > 0) && (
+        <div className="card p-4 border border-indigo-500/30">
+          <div className="text-sm font-semibold text-slate-200 mb-1">📊 Current Market Context for Signal Engine</div>
+          <p className="text-[11px] text-slate-500 mb-3">These market-wide macro inputs are applied to ALL stock signals today.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
+            {[
+              ["Fear & Greed", ctx.key_metrics.india_fear_greed],
+              ["FII 5d (₹Cr)", ctx.key_metrics.fii_5d_cum_cr],
+              ["DII 5d (₹Cr)", ctx.key_metrics.dii_5d_cum_cr],
+              ["VIX", ctx.key_metrics.india_vix],
+              ["PCR", ctx.key_metrics.total_pcr],
+              ["Breadth >SMA50", ctx.key_metrics.breadth_above_sma50_pct != null ? `${ctx.key_metrics.breadth_above_sma50_pct}%` : null],
+            ].map(([k, v]) => (
+              <div key={k as string}>
+                <div className="stat-label">{k}</div>
+                <div className="text-base font-semibold text-slate-100">{v == null ? "—" : v}</div>
+              </div>
+            ))}
+          </div>
+          <ul className="space-y-0.5">
+            {ctx.reasoning.map((line: string, i: number) => <li key={i} className="text-xs text-slate-300">{line}</li>)}
+          </ul>
+        </div>
+      )}
 
       {/* ───────────────────────── India ───────────────────────── */}
       <MarketHeader flag="🇮🇳" title="India Macro" tint="border-orange-500/40" />
