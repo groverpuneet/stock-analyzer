@@ -1,5 +1,5 @@
 # Stock Analyzer — Session Summary
-*Updated: June 29, 2026*
+*Updated: July 2, 2026*
 
 ## Project Overview
 Building a quantitative stock analysis system for Indian equities (expanding to US + global markets).
@@ -69,7 +69,8 @@ Building a quantitative stock analysis system for Indian equities (expanding to 
 - **SQL injection audit**: All queries parameterized
 - **Dependency audit**: Known vulnerabilities documented (accepted risk)
 
-### Session K: Unified Refresh Control (COMPLETE)
+### Post-J (unlettered): Unified Refresh Control (COMPLETE)
+*(Built after Session J. Not lettered — the K/L letters belong to Portfolio + Signal Engine below, per git commits `dafc9ee` / `d615b21`.)*
 - **New `/refresh` page** replaces the old Data Sources + Refresh Status pages
   (both now redirect to `/refresh`). Collectors grouped by market × cadence
   (🇮🇳 India Daily/Weekly/Monthly, 🇺🇸 US Daily/Weekly, + Other), each with real
@@ -86,7 +87,7 @@ Building a quantitative stock analysis system for Indian equities (expanding to 
 - New endpoints: `GET /api/refresh/control`, `GET /api/refresh/health`,
   `POST /api/refresh/trigger-audit`. See ENGINEERING.md → Unified Refresh Control.
 
-### Session L: Manual refresh buttons everywhere + F&G from Dagster
+### Post-J (unlettered): Manual refresh buttons everywhere + F&G from Dagster
 - **Generic Dagster API**: `POST /api/dagster/materialize` ({asset} or {job}) +
   `GET /api/dagster/run-status/{run_id}`. One uniform path behind every 🔄 button
   (shared `useMaterialize` / `useMaterializeMany` hooks, `RefreshAll` + `AssetRefresh`
@@ -106,6 +107,34 @@ Building a quantitative stock analysis system for Indian equities (expanding to 
   never dequeued. Restarted on **venv310** (Python 3.10) — daemon healthy, runs
   execute to SUCCESS. If Dagster stalls again: `pkill -9 -f dagster` then
   `DATABASE_URL=… nohup venv310/bin/dagster dev -w workspace.yaml >logs/dagster_dev.log 2>&1 &`.
+
+### Session K & L (2026-07-02) — Portfolio + Signal Engine + hardening (complete)
+*(The refresh-control work above is now unlettered post-J; K/L below are the real
+session letters per commits `dafc9ee` / `d615b21`.)*
+- **Portfolio upload (Session K)**: private, **localhost/LAN-only** holdings module —
+  TOTP-gated, pgcrypto-encrypted at rest, schema-scoped `portfolio_user`, audit log,
+  blocked on the tunnel. CSV/Excel upload + P&L computed live (never stored). The blanket
+  "no personal data" rule was scoped to "no personal data on external surfaces."
+- **4-pillar signal engine (Session L)**: technical/fundamental/flow/external-sentiment
+  pillars with an explainability panel (per-pillar reasoning, contrary indicators,
+  "what would change this signal"), multi-horizon.
+- **Git author email fixed across the full history (all 89 commits verified)**: were `your.email@example.com`
+  (a repo-**local** `.git/config` override that shadowed `--global`); rewritten to
+  `puneetgrover1991@gmail.com` via `git filter-branch` (`rebase --root` was blocked by
+  `node_modules` committed in early history) and force-pushed. Pre-commit hook now guards
+  the author email. See ENGINEERING.md → "Git Author Configuration (CRITICAL)".
+- **Watchlist 500 error fixed.**
+- **SESSION_SECRET persistent fix**: sessions no longer invalidated on backend restart.
+- **13F / institutional pages — data vintage**: quarter labels (Q1 2026), filed-ago,
+  freshness colour + 45-day banner; SAST days-to-disclose (>2 working days flagged) +
+  SEBI banner (also fixed a 500 from a wrong `date_col`); congress days-to-disclose
+  (>30d flagged); shareholding FY-quarter labels; MF month labels; a freshness header
+  (data as of / last refreshed / next refresh) on every raw-data page.
+- **Logo is now a home link** (→ `/`).
+- **Data health restored**: the Kite access token had been expired since **Jun 26**,
+  silently staling the NSE pipeline; token refreshed and `auto_login` hardened (captures
+  `request_token` from the redirect request). `nse_daily` now records `kite_ohlcv` failures
+  in `data_refresh_log` instead of skipping silently.
 
 ## Current State
 

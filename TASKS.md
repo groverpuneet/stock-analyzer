@@ -15,6 +15,29 @@
 ## Current Status
 
 ### DONE
+
+- [x] Session K — Private portfolio upload (2026-07-02)
+  - Localhost/LAN-only holdings module: TOTP-gated, pgcrypto-encrypted at rest,
+    schema-scoped `portfolio_user`, audit log, blocked on the tunnel
+  - CSV/Excel upload; P&L computed live (never stored)
+  - "No personal data" rule scoped to external surfaces only. Commit: dafc9ee
+
+- [x] Session L — 4-pillar signal engine + explainability (2026-07-02)
+  - Technical / fundamental / flow / external-sentiment pillars, multi-horizon
+  - Explainability panel: per-pillar reasoning, contrary indicators, "what would
+    change this signal"; macro vs stock-specific signals separated. Commit: d615b21
+
+- [x] Maintenance & data health (2026-07-02)
+  - Git author email rewritten to puneetgrover1991@gmail.com across full history
+    (all 89 commits verified) + pre-commit hook guarding author email
+  - Watchlist add 500 fixed — writes now use read-write DATABASE_URL, reads stay on
+    read-only stock_reader (webapp/backend/db.py). Commit: 5650bcf
+  - SESSION_SECRET persisted in .env — sessions survive backend/watchdog restarts
+  - 13F / institutional pages data-vintage labels + freshness banners; logo → home link
+    (commit da56786); auto_login hardened (captures request_token from redirect request)
+  - Data health restored: NSE daily pipeline had not landed since Jun 26; token
+    re-validated, nse_daily_job + nse_weekly_job re-run to success. Commit: 6960bae
+
 - [x] Dagster migration — replacing APScheduler with Dagster assets + jobs
   - 15 assets across 6 groups, 6 jobs, 6 schedules (IST + EST)
   - dagster/repository.py, workspace.yaml, docker-compose.yml
