@@ -156,6 +156,43 @@ export const api = {
   concalls: (id: number) => get<any>(`/api/stocks/${id}/concalls`),
 };
 
+// ── Portfolio (private, localhost-only, TOTP-gated) ──────────────────────────
+// Uses raw fetch (not `get`) so a portfolio 401/403 never triggers the global
+// main-session logout — the portfolio gate is independent of the main session.
+export const isLocalhost = () =>
+  ["localhost", "127.0.0.1", "::1", "[::1]"].includes(window.location.hostname);
+
+async function pget<T>(url: string): Promise<T> {
+  const r = await fetch(url, { credentials: "include" });
+  if (!r.ok) throw Object.assign(new Error(`${r.status}`), { status: r.status });
+  return r.json();
+}
+function pjson(url: string, method: string, body?: any) {
+  return fetch(url, {
+    method, credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
+
+export const portfolio = {
+  status: () => pget<{ verified: boolean; ttl_seconds: number }>("/api/portfolio/status"),
+  verifyTotp: (code: string) => pjson("/api/portfolio/verify-totp", "POST", { code }),
+  logout: () => pjson("/api/portfolio/logout-totp", "POST"),
+  preview: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return fetch("/api/portfolio/preview", { method: "POST", credentials: "include", body: fd });
+  },
+  save: (rows: any[], replace: boolean) => pjson("/api/portfolio/save", "POST", { rows, replace }),
+  holdings: () => pget<{ holdings: any[] }>("/api/portfolio/holdings"),
+  summary: () => pget<any>("/api/portfolio/summary"),
+  alerts: (notify = false) => pget<{ alerts: any[] }>(`/api/portfolio/alerts?notify=${notify}`),
+  overlay: () => pget<{ overlay: Record<string, any> }>("/api/portfolio/signal-overlay"),
+  updateHolding: (id: number, body: any) => pjson(`/api/portfolio/holding/${id}`, "PUT", body),
+  deleteHolding: (id: number) => pjson(`/api/portfolio/holding/${id}`, "DELETE"),
+};
+
 export interface FearGreedMarket {
   score: number | null;
   rating: string | null;

@@ -10,9 +10,10 @@ import RiskAlerts from "./pages/RiskAlerts";
 import Refresh from "./pages/Refresh";
 import RawDataIndex from "./pages/RawDataIndex";
 import RawData from "./pages/RawData";
+import Portfolio from "./pages/Portfolio";
 import ChatWidget from "./components/ChatWidget";
 import DataHealth from "./components/DataHealth";
-import { auth } from "./api";
+import { auth, isLocalhost } from "./api";
 
 async function handleLogout() {
   try {
@@ -30,6 +31,8 @@ const nav = [
   { to: "/macro", label: "Macro" },
   { to: "/watchlist", label: "Watchlist" },
   { to: "/refresh", label: "Refresh" },
+  // Portfolio is private + localhost-only: only surface the tab on the host machine.
+  ...(isLocalhost() ? [{ to: "/portfolio", label: "💼 Portfolio" }] : []),
 ];
 
 // Raw Data submenu categories
@@ -199,6 +202,7 @@ export default function App() {
           <Route path="/refresh-status" element={<Navigate to="/refresh" replace />} />
           <Route path="/data" element={<RawDataIndex />} />
           <Route path="/data/:slug" element={<RawData />} />
+          <Route path="/portfolio" element={<Portfolio />} />
         </Routes>
       </main>
 

@@ -470,3 +470,32 @@
 - Stock detail: VWAP line on price chart, colour-coded volume bars + 20d avg overlay, OBV panel.
 - Raw data tables: exchange/market columns render as flag badges.
 - Smart Money (tabs), Risk Alerts (badges+filter), Fear&Greed (labels) already demarcated.
+
+### Watchdog retry — 2026-07-02 01:06
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+### Data quality audit — nse_daily @ 2026-07-02 01:20
+- gaps: {'ohlcv': 0, 'indicators': 0, 'signals': 94, 'news': 58} (total 152)
+- 4 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60), CUB(75)
+
+### Data quality audit — nse_weekly @ 2026-07-02 01:20
+- gaps: {'fundamentals': 4, 'shareholding': 3} (total 7)
+- 4 stock(s) below 80% completeness: PHARMABEES(60), NIFTYBEES(60), ITBEES(60), CUB(75)
+
+### Watchdog retry — 2026-07-02 01:36
+  - nse_daily_job: stale source(s) kite_quotes, kite_ohlcv, tech_indicators, signals
+
+## 2026-07-02 — Session K part 2: Private Portfolio (localhost-only, TOTP, encrypted)
+- Migration 0023: `portfolio` schema + holdings (sensitive cols BYTEA via pgcrypto) + audit_log.
+- Role `portfolio_user` (schema-scoped + read-only market data); `stock_reader` denied portfolio schema.
+- Access gate (all 3 required): localhost-only (blocks ngrok via forwarding-header check) +
+  main session + 15-min TOTP session (PORTFOLIO_TOTP_SECRET). Encryption key in .env only.
+- Endpoints: verify-totp, status, preview, save, holdings, holding PUT/DELETE, summary, alerts,
+  signal-overlay. P&L/current value computed live, NEVER stored. Not in /api/data/* allowlist.
+- Frontend Portfolio.tsx (TOTP gate, drag/drop upload+preview, dashboard, 15-min countdown);
+  Signals dashboard shows 💼 + vs-stop/target for held stocks (localhost+TOTP overlay).
+- Telegram alerts: type + direction only (no qty/price/P&L).
+- Verified: ngrok→403, no-TOTP→401, wrong code→401+audit, encrypted at rest (no plaintext),
+  stock_reader denied, portfolio absent from /api/data/*, no financials in logs.
+- .env additions: PORTFOLIO_TOTP_SECRET, PORTFOLIO_ENCRYPTION_KEY, PORTFOLIO_DATABASE_URL.
+- Docker daemon down this session (webapp runs on host launchd; no rebuild needed).

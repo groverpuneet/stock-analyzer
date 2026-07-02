@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, fmt, Verdict, completenessClass } from "../api";
+import { api, fmt, Verdict, completenessClass, isLocalhost, portfolio } from "../api";
 import SignalBadge from "../components/SignalBadge";
 import MarketBadge, { marketOf } from "../components/MarketBadge";
 import LastUpdated from "../components/LastUpdated";
@@ -26,10 +26,18 @@ interface Col {
 }
 
 const cols: Col[] = [
-  { key: "symbol", label: "Symbol", width: 90, render: (r) => (
-      <Link to={`/stock/${r.stock_id}`} className="font-medium text-indigo-300 hover:text-indigo-200">{r.symbol}</Link>
+  { key: "symbol", label: "Symbol", width: 100, render: (r) => (
+      <Link to={`/stock/${r.stock_id}`} className="font-medium text-indigo-300 hover:text-indigo-200">
+        {r._held && <span title="In your portfolio" className="mr-1">💼</span>}{r.symbol}
+      </Link>
     ) },
   { key: "market", label: "Market", width: 96, render: (r) => <MarketBadge exchange={r.exchange} /> },
+  { key: "_stop_dist", label: "vs Stop", num: true, width: 80,
+    render: (r) => r._stop_dist == null ? "—" : `${r._stop_dist > 0 ? "+" : ""}${r._stop_dist}%`,
+    cls: (v) => (v == null ? "" : v <= 3 ? "text-sell" : "text-slate-400") },
+  { key: "_target_dist", label: "vs Target", num: true, width: 84,
+    render: (r) => r._target_dist == null ? "—" : `${r._target_dist > 0 ? "+" : ""}${r._target_dist}%`,
+    cls: (v) => (v == null ? "" : v <= 3 ? "text-buy" : "text-slate-400") },
   { key: "industry", label: "Industry", width: 150, render: (r) => (
       <span className="text-slate-300 text-xs" title={r.sector || ""}>{r.industry || "—"}</span>
     ) },
@@ -109,6 +117,13 @@ export default function Dashboard() {
   useEffect(() => { localStorage.setItem(LS_HIDDEN, JSON.stringify(hidden)); }, [hidden]);
   useEffect(() => { localStorage.setItem(LS_WIDTHS, JSON.stringify(widths)); }, [widths]);
 
+  // Portfolio overlay (localhost + TOTP only): 💼 badge + stop/target distance columns.
+  const [overlay, setOverlay] = useState<Record<string, any>>({});
+  useEffect(() => {
+    if (!isLocalhost()) return;
+    portfolio.overlay().then((d) => setOverlay(d.overlay || {})).catch(() => setOverlay({}));
+  }, []);
+
   // source -> last completed_at, for the per-column "last updated" tooltips
   const [srcTimes, setSrcTimes] = useState<Record<string, string | null>>({});
   const load = useCallback(() => {
@@ -128,7 +143,10 @@ export default function Dashboard() {
 
   const rows = useMemo(() => {
     if (!data) return [];
-    let r = data.stocks;
+    let r = data.stocks.map((x) => {
+      const ov = overlay[x.symbol];
+      return ov ? { ...x, _held: true, _stop_dist: ov.stop_loss_dist_pct, _target_dist: ov.target_dist_pct } : x;
+    });
     if (market !== "all") r = r.filter((x) => marketOf(x.exchange) === market);
     if (verdict !== "ALL") r = r.filter((x) => x.verdict === verdict);
     if (q) r = r.filter((x) => x.symbol.toLowerCase().includes(q.toLowerCase()) || (x.name || "").toLowerCase().includes(q.toLowerCase()) || (x.industry || "").toLowerCase().includes(q.toLowerCase()));
@@ -141,8 +159,10 @@ export default function Dashboard() {
       const cmp = typeof av === "string" ? av.localeCompare(bv) : av - bv;
       return dir === "asc" ? cmp : -cmp;
     });
+    // Portfolio holdings float to the top of the signals list.
+    sorted.sort((a, b) => (b._held ? 1 : 0) - (a._held ? 1 : 0));
     return sorted;
-  }, [data, market, verdict, q, minScore, sortKey, dir]);
+  }, [data, market, verdict, q, minScore, sortKey, dir, overlay]);
 
   if (err) return <Error msg={err} />;
   if (!data) return <Loading />;

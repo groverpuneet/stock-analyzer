@@ -30,7 +30,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
-from routers import signals, stocks, macro, watchlist, opportunities, chat, refresh, dashboard, quality, data, smart_money, fear_greed, dagster  # noqa: E402
+from routers import signals, stocks, macro, watchlist, opportunities, chat, refresh, dashboard, quality, data, smart_money, fear_greed, dagster, portfolio  # noqa: E402
 
 SESSION_SECRET = os.environ.get("SESSION_SECRET", secrets.token_hex(32))
 SESSION_COOKIE_NAME = "stock_session"
@@ -115,6 +115,21 @@ async def auth_middleware(request: Request, call_next):
     return await call_next(request)
 
 
+@app.middleware("http")
+async def portfolio_localhost_guard(request: Request, call_next):
+    """Hard gate: portfolio paths are localhost-only. Blocks ngrok/any external access
+    BEFORE auth even runs, and audit-logs the attempt. Runs outermost (added last)."""
+    path = request.url.path
+    if path.startswith("/api/portfolio") or path.startswith("/portfolio"):
+        from portfolio_auth import is_localhost
+        from portfolio_db import audit
+        if not is_localhost(request):
+            client = request.client.host if request.client else None
+            audit("blocked_external", client, f"path={path}")
+            return JSONResponse(status_code=403, content={"detail": "Portfolio is accessible from localhost only"})
+    return await call_next(request)
+
+
 @app.post("/api/auth/login")
 @limiter.limit("10/minute")
 async def login(request: Request, response: Response):
@@ -180,5 +195,5 @@ def health():
 for r in (signals.router, stocks.router, macro.router, watchlist.router,
           opportunities.router, chat.router, refresh.router, dashboard.router,
           quality.router, data.router, smart_money.router, fear_greed.router,
-          dagster.router):
+          dagster.router, portfolio.router):
     app.include_router(r)

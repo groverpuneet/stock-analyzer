@@ -908,3 +908,41 @@ Bypass with `git commit --no-verify` (use sparingly)
 - Macro: separate India (RBI/MoSPI/RBI-DBIE) and US (FRED) sections + FII/DII trend chart.
 - Opportunities: market filter + badges. Stock detail: VWAP overlay, coloured volume + 20d avg, OBV.
 - Raw-data tables render exchange/market as badges. SmartMoney/RiskAlerts/Fear&Greed already demarcated.
+
+## Session K (part 2) — Private Portfolio (localhost-only, TOTP, encrypted)
+
+A private portfolio module, deliberately isolated from all public/market surfaces.
+Manual CSV/Excel upload only — NEVER touches Kite/brokerage positions/holdings APIs.
+
+**Isolation & access control (all three required for every /api/portfolio/*):**
+1. localhost only — `portfolio_localhost_guard` middleware + `is_localhost()` reject any
+   request carrying proxy/tunnel forwarding headers (ngrok always sets `X-Forwarded-For`/
+   `X-Forwarded-Host`; the local Vite proxy uses changeOrigin WITHOUT xfwd, so local
+   requests carry none). Blocked attempts → 403 + `portfolio.audit_log`.
+2. main session (existing puneet login) — enforced by the global auth middleware.
+3. portfolio TOTP session — `portfolio_session` cookie, 15-min TTL, issued only after a
+   valid 6-digit TOTP (`PORTFOLIO_TOTP_SECRET`). Signed with `PORTFOLIO_ENCRYPTION_KEY`.
+
+**Data at rest:** separate `portfolio` schema owned by `portfolio_user` (rights ONLY on
+that schema + read-only market data). Sensitive columns (quantity, buying_price,
+target_price, stop_loss) are BYTEA, encrypted with pgcrypto `pgp_sym_encrypt`; the key
+lives only in `.env` (`PORTFOLIO_ENCRYPTION_KEY`), never in the DB, never logged.
+`stock_reader` (webapp read-only user) is denied all access to the portfolio schema.
+
+**Never stored:** unrealized P&L, current value, pnl% — always computed at query time from
+`daily_prices`. Portfolio tables are NOT in the raw-data router allowlist (`/api/data/*` → 404).
+
+**Files:** `webapp/backend/portfolio_db.py` (isolated conn + audit + enc key),
+`portfolio_auth.py` (TOTP + localhost + 15-min session + `require_portfolio`),
+`routers/portfolio.py` (verify-totp, status, preview, save, holdings, holding PUT/DELETE,
+summary, alerts, signal-overlay). Migration `0023` (schema + tables + grants).
+Frontend `pages/Portfolio.tsx` (TOTP gate, drag/drop upload + preview, dashboard, 15-min
+countdown). Dashboard shows 💼 badge + vs-stop/target columns for held stocks (overlay,
+localhost+TOTP only). `scripts/setup_portfolio_db.sh` documents role/pgcrypto setup.
+
+**Alerts:** computed locally (stop-loss breach/approach, target reached, >5% drop, earnings
+7d, insider selling, pledging, FII selling streak). Telegram gets alert type + direction
+ONLY (`"⚠️ SBIN approaching stop loss zone"`) — never quantities, prices, or P&L.
+
+**.env additions:** `PORTFOLIO_TOTP_SECRET`, `PORTFOLIO_ENCRYPTION_KEY`, `PORTFOLIO_DATABASE_URL`.
+One-time: `psql` create role `portfolio_user` + `CREATE EXTENSION pgcrypto` (see setup script).
