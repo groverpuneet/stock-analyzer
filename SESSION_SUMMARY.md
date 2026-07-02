@@ -147,7 +147,7 @@ Alembic migrations at: 0016
 - Docker compose for full deployment
 
 ## Ground Rules (always apply)
-- No personal data — no portfolio, holdings, P&L, positions
+- No personal data on external surfaces — no portfolio/holdings/P&L/positions over the tunnel, Telegram, or public API. Personal portfolio is allowed **local-only** (Session K): localhost/LAN + TOTP + encrypted at rest, blocked on tunnel
 - Public market data only
 - Kite Connect: read-only (OHLCV, quotes, instruments only)
 - FinBERT local for bulk scoring, Claude API only for on-demand research

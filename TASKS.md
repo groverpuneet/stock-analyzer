@@ -1,7 +1,7 @@
 # Stock Analyzer — Integration Build Queue
 
 ## Ground Rules (read before every session)
-- No personal data: Do not access, store, or display personal portfolio, holdings, P&L, or positions
+- No personal data on external surfaces: Never expose personal portfolio, holdings, P&L, or positions on any externally-reachable surface (ngrok/Cloudflare tunnel, Telegram bot, public API). Personal portfolio IS allowed as a **local-only** module (Session K): localhost/LAN + TOTP-gated + encrypted at rest, blocked on the tunnel. See ENGINEERING.md → "Session K (part 2) — Private Portfolio".
 - Public market data only: All integrations use publicly available market-wide data
 - Kite Connect scope: Use only for market data (OHLCV, quotes, instruments) — never call place_order, positions, holdings, or portfolio endpoints
 - Token optimization: Local models (FinBERT) for bulk scoring, Claude API only for on-demand research queries
