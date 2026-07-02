@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import RefreshAll from "../components/RefreshAll";
 
 interface Holding13F {
   filer_name: string;
@@ -78,7 +79,7 @@ export default function SmartMoney() {
     else setTab("sast");
   }, [market]);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setLoading(true);
     const fetches = market === "us"
       ? [
@@ -104,6 +105,7 @@ export default function SmartMoney() {
       }
     }).finally(() => setLoading(false));
   }, [market]);
+  useEffect(() => { load(); }, [load]);
 
   const formatNum = (n: number | null, d = 0) => n == null ? "—" : n.toLocaleString("en-US", { maximumFractionDigits: d });
   const formatPct = (n: number | null) => n == null ? "—" : `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
@@ -183,6 +185,11 @@ export default function SmartMoney() {
             <option value="buy">Buying Only</option>
             <option value="sell">Selling Only</option>
           </select>
+          <RefreshAll
+            assets={market === "us"
+              ? ["us_13f_holdings", "us_insider_trades"]
+              : ["nse_sast_disclosures", "nse_insider_trades", "nse_pledging_alerts"]}
+            onDone={load} />
         </div>
       </div>
 

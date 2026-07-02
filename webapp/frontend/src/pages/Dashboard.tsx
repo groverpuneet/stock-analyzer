@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, fmt, Verdict, completenessClass } from "../api";
 import SignalBadge from "../components/SignalBadge";
 import MarketBadge, { marketOf } from "../components/MarketBadge";
 import LastUpdated from "../components/LastUpdated";
 import FearGreedWidget from "../components/FearGreedWidget";
+import RefreshAll from "../components/RefreshAll";
+import AssetRefresh from "../components/AssetRefresh";
+import { PAGE_ASSETS, ASSET_SOURCE } from "../lib/refreshTargets";
 
 const isUS = (exchange?: string) => marketOf(exchange) === "us";
 
@@ -106,9 +109,17 @@ export default function Dashboard() {
   useEffect(() => { localStorage.setItem(LS_HIDDEN, JSON.stringify(hidden)); }, [hidden]);
   useEffect(() => { localStorage.setItem(LS_WIDTHS, JSON.stringify(widths)); }, [widths]);
 
-  useEffect(() => {
+  // source -> last completed_at, for the per-column "last updated" tooltips
+  const [srcTimes, setSrcTimes] = useState<Record<string, string | null>>({});
+  const load = useCallback(() => {
     api.dashboard().then(setData).catch((e) => setErr(String(e)));
+    api.refreshControl().then((c: any) => {
+      const map: Record<string, string | null> = {};
+      for (const g of c.groups || []) for (const j of g.jobs || []) map[j.source] = j.completed_at;
+      setSrcTimes(map);
+    }).catch(() => {});
   }, []);
+  useEffect(() => { load(); }, [load]);
 
   const visibleCols = useMemo(
     () => order.map((k) => COL_MAP[k]).filter((c) => c && !hidden.includes(c.key)),
@@ -186,6 +197,7 @@ export default function Dashboard() {
             </div>
           )}
           <LastUpdated page="dashboard" />
+          <RefreshAll assets={PAGE_ASSETS.dashboard} onDone={load} />
         </div>
       </div>
 
@@ -252,9 +264,15 @@ export default function Dashboard() {
                     style={{ width: w, minWidth: w, maxWidth: w }}
                     className={`th relative cursor-pointer select-none hover:text-slate-200 ${c.num ? "text-right" : ""} ${sortKey === c.key ? "text-indigo-300" : ""}`}
                     title="Click to sort · drag to reorder">
-                    <span className="truncate inline-block align-bottom" style={{ maxWidth: w - 14 }}>
+                    <span className="truncate inline-block align-bottom" style={{ maxWidth: w - (c.refreshAsset ? 28 : 14) }}>
                       {c.label}{sortKey === c.key ? (dir === "asc" ? " ▲" : " ▼") : ""}
                     </span>
+                    {c.refreshAsset && (
+                      <span className="ml-1 align-middle">
+                        <AssetRefresh asset={c.refreshAsset} label={c.label}
+                          lastUpdated={srcTimes[ASSET_SOURCE[c.refreshAsset]]} onDone={load} />
+                      </span>
+                    )}
                     {/* resize handle */}
                     <span onMouseDown={(e) => startResize(c.key, e)} onClick={(e) => e.stopPropagation()}
                       className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-indigo-500/50" />

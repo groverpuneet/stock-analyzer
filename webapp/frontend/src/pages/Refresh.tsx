@@ -126,17 +126,20 @@ export default function Refresh() {
     }
   }, [load]);
 
-  const bulk = useCallback(async (kind: "all" | "failed" | "audit") => {
+  const bulk = useCallback(async (kind: "all" | "failed" | "audit" | "India" | "US") => {
     setBanner("");
     try {
       const res = kind === "all" ? await api.triggerAll()
         : kind === "failed" ? await api.triggerFailed()
-        : await api.triggerAudit();
+        : kind === "audit" ? await api.triggerAudit()
+        : await api.triggerRegion(kind);
       const launched: any[] = res.launched || [];
       const sources: Record<string, true> = {};
       for (const l of launched) if (l.ok && l.source) sources[l.source] = true;
       setPending((p) => ({ ...p, ...sources }));
-      const noun = kind === "audit" ? "audit asset" : kind === "failed" ? "failed/stalled source" : "source";
+      const noun = kind === "audit" ? "audit asset"
+        : kind === "failed" ? "failed/stalled source"
+        : kind === "India" || kind === "US" ? `${kind} source` : "source";
       setBanner(`Launched ${res.ok}/${res.count} ${noun}${res.count === 1 ? "" : "s"}.`);
       setTimeout(load, 1200);
     } catch (e) {
@@ -177,6 +180,14 @@ export default function Refresh() {
           <button onClick={() => bulk("failed")} disabled={dagsterDown}
             className="text-xs font-medium border border-sell/50 text-sell hover:bg-sell/10 rounded-md px-3 py-1.5 disabled:opacity-40">
             ⚠ Retry Failed
+          </button>
+          <button onClick={() => bulk("India")} disabled={dagsterDown}
+            className="text-xs font-medium border border-orange-500/50 text-orange-300 hover:bg-orange-500/10 rounded-md px-3 py-1.5 disabled:opacity-40">
+            🔄 Refresh All India
+          </button>
+          <button onClick={() => bulk("US")} disabled={dagsterDown}
+            className="text-xs font-medium border border-blue-500/50 text-blue-300 hover:bg-blue-500/10 rounded-md px-3 py-1.5 disabled:opacity-40">
+            🔄 Refresh All US
           </button>
           <button onClick={() => bulk("audit")} disabled={dagsterDown}
             className="text-xs font-medium border border-edge text-slate-300 hover:bg-edge/60 rounded-md px-3 py-1.5 disabled:opacity-40">

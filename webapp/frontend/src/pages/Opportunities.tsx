@@ -1,17 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, fmt } from "../api";
 import { Loading, Error } from "./Dashboard";
 import MarketBadge, { marketOf } from "../components/MarketBadge";
 import LastUpdated from "../components/LastUpdated";
+import RefreshAll from "../components/RefreshAll";
+import { PAGE_ASSETS } from "../lib/refreshTargets";
 
 export default function Opportunities() {
   const [d, setD] = useState<any>(null);
   const [err, setErr] = useState<string>();
   const [market, setMarket] = useState<"all" | "india" | "us">("all");
-  useEffect(() => {
+  const load = useCallback(() => {
     api.opportunities().then(setD).catch((e) => setErr(String(e)));
   }, []);
+  useEffect(() => { load(); }, [load]);
 
   const filt = useMemo(() => {
     if (!d) return d;
@@ -43,6 +46,7 @@ export default function Opportunities() {
             ))}
           </div>
           <LastUpdated page="opportunities" />
+          <RefreshAll assets={PAGE_ASSETS.opportunities} onDone={load} />
         </div>
       </div>
 

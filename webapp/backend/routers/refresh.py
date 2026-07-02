@@ -380,6 +380,16 @@ def trigger_all():
     return {"launched": launched, "count": len(launched), "ok": ok}
 
 
+@router.post("/trigger-region")
+def trigger_region(region: str):
+    """Refresh only one market's jobs — region = 'India' or 'US'."""
+    sources = [j[0] for g in JOB_GROUPS if g["region"].lower() == region.lower()
+               for j in g["jobs"]]
+    launched = _launch_sources(sources)
+    ok = sum(1 for r in launched if r.get("ok"))
+    return {"region": region, "launched": launched, "count": len(launched), "ok": ok}
+
+
 @router.post("/trigger-failed")
 def trigger_failed():
     """Refresh only sources that need attention: failed, stalled, never-run,

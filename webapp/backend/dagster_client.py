@@ -35,6 +35,28 @@ mutation Launch($asset: String!) {
 }
 """
 
+_LAUNCH_JOB = """
+mutation LaunchJob($job: String!) {
+  launchPipelineExecution(executionParams: {
+    selector: {
+      repositoryLocationName: "stock_analyzer",
+      repositoryName: "__repository__",
+      pipelineName: $job
+    },
+    mode: "default"
+  }) {
+    __typename
+    ... on LaunchRunSuccess { run { runId status } }
+    ... on PythonError { message }
+    ... on InvalidSubsetError { message }
+    ... on PipelineNotFoundError { message }
+    ... on RunConfigValidationInvalid { errors { message } }
+    ... on PresetNotFoundError { message }
+    ... on ConflictingExecutionParamsError { message }
+  }
+}
+"""
+
 _RUN_STATUS = """
 query RunStatus($runId: ID!) {
   runOrError(runId: $runId) {
@@ -60,6 +82,19 @@ def launch_asset(asset: str) -> dict:
     """Launch a materialization for one asset. Returns {ok, run_id?, error?}."""
     try:
         data = _post(_LAUNCH, {"asset": asset})
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": f"Dagster unreachable: {e}"}
+    node = (data.get("data") or {}).get("launchPipelineExecution") or {}
+    if node.get("__typename") == "LaunchRunSuccess":
+        return {"ok": True, "run_id": node["run"]["runId"], "status": node["run"]["status"]}
+    msg = node.get("message") or json.dumps(data.get("errors") or node)
+    return {"ok": False, "error": f"{node.get('__typename', 'Error')}: {msg}"}
+
+
+def launch_job(job: str) -> dict:
+    """Launch a full Dagster job (all its assets). Returns {ok, run_id?, error?}."""
+    try:
+        data = _post(_LAUNCH_JOB, {"job": job})
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": f"Dagster unreachable: {e}"}
     node = (data.get("data") or {}).get("launchPipelineExecution") or {}

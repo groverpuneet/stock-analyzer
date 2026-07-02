@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Bar,
@@ -9,6 +9,8 @@ import SignalBadge from "../components/SignalBadge";
 import MarketBadge, { marketOf } from "../components/MarketBadge";
 import { Loading, Error } from "./Dashboard";
 import LastUpdated from "../components/LastUpdated";
+import RefreshAll from "../components/RefreshAll";
+import { PAGE_ASSETS } from "../lib/refreshTargets";
 import PeHistoryChart from "../components/PeHistoryChart";
 import { QuarterlyResults, Financials, Concalls } from "../components/StockTabs";
 
@@ -21,11 +23,14 @@ export default function StockDetail() {
   const [err, setErr] = useState<string>();
   const [tab, setTab] = useState<Tab>("Overview");
 
+  const load = useCallback(() => {
+    api.stock(Number(id)).then(setD).catch((e) => setErr(String(e)));
+  }, [id]);
   useEffect(() => {
     setD(null);
     setTab("Overview");
-    api.stock(Number(id)).then(setD).catch((e) => setErr(String(e)));
-  }, [id]);
+    load();
+  }, [id, load]);
 
   if (err) return <Error msg={err} />;
   if (!d) return <Loading />;
@@ -73,7 +78,10 @@ export default function StockDetail() {
               {stock.sector}{stock.sector && stock.industry ? " · " : ""}{stock.industry}
             </p>
           )}
-          <div className="mt-1"><LastUpdated page="stock" /></div>
+          <div className="mt-1 flex items-center gap-3">
+            <LastUpdated page="stock" />
+            <RefreshAll assets={PAGE_ASSETS.stock} onDone={load} />
+          </div>
         </div>
         {signal && (
           <div className="text-right">

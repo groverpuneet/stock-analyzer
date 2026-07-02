@@ -53,5 +53,10 @@ def us_signals(context) -> None:
 )
 def us_fear_greed(context) -> None:
     from data_collectors.fear_greed_collector import collect_us_fear_greed
-    r = collect_us_fear_greed()
+    from utils.db import refresh_log
+    # Record the run so the dashboard widget's "computed" timestamp is accurate
+    # even when materialized on its own (the 🔄 button).
+    with refresh_log("fear_greed") as meta:
+        r = collect_us_fear_greed()
+        meta["rows"] = 1
     context.log.info(f"US F&G: {r['score']} ({r['rating']})")

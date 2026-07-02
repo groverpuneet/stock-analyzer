@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Line,
   ResponsiveContainer, Cell, Tooltip, XAxis, YAxis, Legend,
@@ -6,6 +6,8 @@ import {
 import { api, fmt } from "../api";
 import { Loading, Error } from "./Dashboard";
 import LastUpdated from "../components/LastUpdated";
+import RefreshAll from "../components/RefreshAll";
+import { PAGE_ASSETS } from "../lib/refreshTargets";
 
 const LABELS: Record<string, string> = {
   repo_rate: "Repo Rate", reverse_repo_rate: "Reverse Repo", crr: "CRR", slr: "SLR",
@@ -22,10 +24,11 @@ export default function Macro() {
   const [d, setD] = useState<any>(null);
   const [trend, setTrend] = useState<any>(null);
   const [err, setErr] = useState<string>();
-  useEffect(() => {
+  const load = useCallback(() => {
     api.macro().then(setD).catch((e) => setErr(String(e)));
     api.fiiDiiTrend(30).then(setTrend).catch(() => setTrend(null));
   }, []);
+  useEffect(() => { load(); }, [load]);
   if (err) return <Error msg={err} />;
   if (!d) return <Loading />;
 
@@ -38,7 +41,10 @@ export default function Macro() {
           <h1 className="text-xl font-semibold text-slate-100">Macro Snapshot</h1>
           <p className="text-sm text-slate-400">India and US macro, kept strictly separate — all live from the database.</p>
         </div>
-        <LastUpdated page="macro" />
+        <div className="flex items-center gap-3">
+          <LastUpdated page="macro" />
+          <RefreshAll assets={PAGE_ASSETS.macro} onDone={load} />
+        </div>
       </div>
 
       {/* ───────────────────────── India ───────────────────────── */}

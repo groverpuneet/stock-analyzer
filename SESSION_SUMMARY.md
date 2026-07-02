@@ -86,6 +86,27 @@ Building a quantitative stock analysis system for Indian equities (expanding to 
 - New endpoints: `GET /api/refresh/control`, `GET /api/refresh/health`,
   `POST /api/refresh/trigger-audit`. See ENGINEERING.md → Unified Refresh Control.
 
+### Session L: Manual refresh buttons everywhere + F&G from Dagster
+- **Generic Dagster API**: `POST /api/dagster/materialize` ({asset} or {job}) +
+  `GET /api/dagster/run-status/{run_id}`. One uniform path behind every 🔄 button
+  (shared `useMaterialize` / `useMaterializeMany` hooks, `RefreshAll` + `AssetRefresh`
+  components). `dagster_client.launch_job()` added alongside `launch_asset()`.
+- **Fear & Greed**: per-market 🔄 on each gauge (India→`india_fear_greed`,
+  US→`us_fear_greed`), shows data date + computed time; the two assets now write
+  `data_refresh_log('fear_greed')` so the timestamp is accurate on solo refresh.
+- **Dashboard**: 🔄 in the lead column header of each source group (Price→prices,
+  RSI→indicators, P/E→fundamentals, News→news, Score→signals, Insider→insider) with
+  a "last updated" tooltip; plus a top-right "Refresh All".
+- **Refresh All on every page**: Dashboard, Macro, Opportunities, Smart Money,
+  Risk Alerts, Watchlist, Stock Detail — materialises that page's assets, live progress.
+- **/refresh page**: added "🔄 Refresh All India" / "🔄 Refresh All US"
+  (`POST /api/refresh/trigger-region?region=`) alongside Run All / Retry Failed / Audit.
+- **ENV FIX (important)**: native `dagster dev` was wedged ~19.5h (Mac sleep) AND
+  running on `venv` (Python 3.9), so assets with `X | None` hints failed and runs
+  never dequeued. Restarted on **venv310** (Python 3.10) — daemon healthy, runs
+  execute to SUCCESS. If Dagster stalls again: `pkill -9 -f dagster` then
+  `DATABASE_URL=… nohup venv310/bin/dagster dev -w workspace.yaml >logs/dagster_dev.log 2>&1 &`.
+
 ## Current State
 
 ### Running Services (launchd)

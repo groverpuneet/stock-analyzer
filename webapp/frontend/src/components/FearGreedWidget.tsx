@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceArea,
 } from "recharts";
-import { api, FearGreed, FearGreedMarket, fgColor } from "../api";
+import { api, FearGreed, FearGreedMarket, fgColor, relTime } from "../api";
+import AssetRefresh from "./AssetRefresh";
 
 // Semicircular gauge (0-100) for a single market.
 function Gauge({ score }: { score: number | null }) {
@@ -34,12 +35,16 @@ function Gauge({ score }: { score: number | null }) {
   );
 }
 
-function Market({ title, m, onExpand }: { title: string; m: FearGreedMarket; onExpand: () => void }) {
+function Market({ title, m, asset, computedAt, onExpand, onDone }: {
+  title: string; m: FearGreedMarket; asset: string;
+  computedAt: string | null; onExpand: () => void; onDone: () => void;
+}) {
   const last7 = m.history.slice(-7);
   const yesterday = m.history.length >= 2 ? m.history[m.history.length - 2]?.value : null;
   const change = m.score != null && yesterday != null ? m.score - yesterday : null;
   const arrow = change == null ? "" : change > 1 ? "↑" : change < -1 ? "↓" : "→";
   const arrowColor = change == null ? "" : change > 1 ? "text-buy" : change < -1 ? "text-sell" : "text-slate-400";
+  const dir = change == null ? "" : change > 1 ? "Rising" : change < -1 ? "Falling" : "Flat";
 
   // Format date as "28-Jun"
   const formatDate = (d: string | null) => {
@@ -50,43 +55,50 @@ function Market({ title, m, onExpand }: { title: string; m: FearGreedMarket; onE
   };
 
   return (
-    <button onClick={onExpand}
-      className="flex-1 flex flex-col items-center rounded-lg border border-edge px-3 py-2 hover:border-indigo-500/50 transition-colors"
-      title="Click for 30-day chart">
-      <div className="text-xs text-slate-400">{title}</div>
-      <Gauge score={m.score} />
-      <div className="flex items-center gap-1">
-        <span className="text-xs font-medium" style={{ color: fgColor(m.score) }}>{m.rating ?? "—"}</span>
-        {arrow && <span className={`text-xs font-bold ${arrowColor}`}>{arrow}</span>}
+    <div className="relative flex-1 flex flex-col items-center rounded-lg border border-edge px-3 py-2 hover:border-indigo-500/50 transition-colors">
+      {/* per-market refresh (top-right, outside the click-to-expand area) */}
+      <div className="absolute top-1.5 right-1.5">
+        <AssetRefresh asset={asset} lastUpdated={computedAt} onDone={onDone} label={`${title} Fear & Greed`} />
       </div>
-      {/* Yesterday's value */}
-      {yesterday != null && (
-        <div className="text-[10px] text-slate-500">
-          Yesterday: {Math.round(yesterday)}
+      <button onClick={onExpand} className="flex flex-col items-center w-full" title="Click for 30-day chart">
+        <div className="text-xs text-slate-400">{title}</div>
+        <Gauge score={m.score} />
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium" style={{ color: fgColor(m.score) }}>{m.rating ?? "—"}</span>
+          {arrow && <span className={`text-xs font-bold ${arrowColor}`} title={dir}>{arrow}</span>}
         </div>
-      )}
-      {/* Last updated date */}
-      <div className="text-[10px] text-slate-500 mt-0.5">
-        Updated: {formatDate(m.date)}
-      </div>
-      {/* 7-day sparkline trend */}
-      {last7.length > 1 && (
-        <div className="flex items-end gap-0.5 h-6 mt-1">
-          {last7.map((p, i) => (
-            <span key={i} className="w-1.5 rounded-sm" style={{ height: `${Math.max(8, p.value)}%`, background: fgColor(p.value) }}
-              title={`${p.date}: ${Math.round(p.value)}`} />
-          ))}
+        {yesterday != null && (
+          <div className="text-[10px] text-slate-500">Yesterday: {Math.round(yesterday)}</div>
+        )}
+        {/* data date + time of last computation (from data_refresh_log) */}
+        <div className="text-[10px] text-slate-500 mt-0.5 text-center leading-tight">
+          Data: {formatDate(m.date)}
+          <br />
+          Computed: {computedAt ? relTime(computedAt) : "—"}
         </div>
-      )}
-    </button>
+        {last7.length > 1 && (
+          <div className="flex items-end gap-0.5 h-6 mt-1">
+            {last7.map((p, i) => (
+              <span key={i} className="w-1.5 rounded-sm" style={{ height: `${Math.max(8, p.value)}%`, background: fgColor(p.value) }}
+                title={`${p.date}: ${Math.round(p.value)}`} />
+            ))}
+          </div>
+        )}
+      </button>
+    </div>
   );
 }
 
 export default function FearGreedWidget() {
   const [fg, setFg] = useState<FearGreed | null>(null);
+  const [computedAt, setComputedAt] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<null | "india" | "us">(null);
 
-  useEffect(() => { api.fearGreed().then(setFg).catch(() => setFg(null)); }, []);
+  const load = useCallback(() => {
+    api.fearGreed().then(setFg).catch(() => setFg(null));
+    api.refreshLast("fear_greed").then((r) => setComputedAt(r?.completed_at ?? null)).catch(() => {});
+  }, []);
+  useEffect(() => { load(); }, [load]);
   if (!fg) return null;
 
   const chartData = expanded
@@ -103,8 +115,10 @@ export default function FearGreedWidget() {
       </div>
       {!expanded ? (
         <div className="flex gap-3">
-          <Market title="🇮🇳 India" m={fg.india} onExpand={() => setExpanded("india")} />
-          <Market title="🇺🇸 US (CNN)" m={fg.us} onExpand={() => setExpanded("us")} />
+          <Market title="🇮🇳 India" m={fg.india} asset="india_fear_greed" computedAt={computedAt}
+            onExpand={() => setExpanded("india")} onDone={load} />
+          <Market title="🇺🇸 US (CNN)" m={fg.us} asset="us_fear_greed" computedAt={computedAt}
+            onExpand={() => setExpanded("us")} onDone={load} />
         </div>
       ) : (
         <div>

@@ -5,6 +5,8 @@ import SignalBadge from "../components/SignalBadge";
 import MarketBadge from "../components/MarketBadge";
 import { Loading, Error as ErrorView } from "./Dashboard";
 import LastUpdated from "../components/LastUpdated";
+import RefreshAll from "../components/RefreshAll";
+import { PAGE_ASSETS } from "../lib/refreshTargets";
 
 interface SearchResult {
   id?: number;          // present for local (NSE + seeded US) rows
@@ -96,7 +98,10 @@ export default function Watchlist() {
         <div>
           <h1 className="text-xl font-semibold text-slate-100">Watchlist Manager</h1>
           <p className="text-sm text-slate-400">Track symbols across named lists — 🇮🇳 NSE + 🇺🇸 US. Public market data only, no holdings or P&L.</p>
-          <div className="mt-1"><LastUpdated page="watchlist" /></div>
+          <div className="mt-1 flex items-center gap-3">
+            <LastUpdated page="watchlist" />
+            <RefreshAll assets={PAGE_ASSETS.watchlist} onDone={() => load(active)} />
+          </div>
         </div>
         <div className="flex gap-1">
           {names.map((n) => (

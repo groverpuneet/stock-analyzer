@@ -30,7 +30,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
-from routers import signals, stocks, macro, watchlist, opportunities, chat, refresh, dashboard, quality, data, smart_money, fear_greed  # noqa: E402
+from routers import signals, stocks, macro, watchlist, opportunities, chat, refresh, dashboard, quality, data, smart_money, fear_greed, dagster  # noqa: E402
 
 SESSION_SECRET = os.environ.get("SESSION_SECRET", secrets.token_hex(32))
 SESSION_COOKIE_NAME = "stock_session"
@@ -179,5 +179,6 @@ def health():
 
 for r in (signals.router, stocks.router, macro.router, watchlist.router,
           opportunities.router, chat.router, refresh.router, dashboard.router,
-          quality.router, data.router, smart_money.router, fear_greed.router):
+          quality.router, data.router, smart_money.router, fear_greed.router,
+          dagster.router):
     app.include_router(r)

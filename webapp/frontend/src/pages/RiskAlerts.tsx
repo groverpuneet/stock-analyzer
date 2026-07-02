@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import RefreshAll from "../components/RefreshAll";
+import { PAGE_ASSETS } from "../lib/refreshTargets";
 
 interface Alert {
   type: string;
@@ -33,10 +35,11 @@ export default function RiskAlerts() {
   const [filterMarket, setFilterMarket] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setLoading(true);
     fetchAlerts().then(setAlerts).finally(() => setLoading(false));
   }, []);
+  useEffect(() => { load(); }, [load]);
 
   async function fetchAlerts(): Promise<Alert[]> {
     const allAlerts: Alert[] = [];
@@ -224,6 +227,7 @@ export default function RiskAlerts() {
               <option key={t} value={t}>{t.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</option>
             ))}
           </select>
+          <RefreshAll assets={PAGE_ASSETS.riskAlerts} onDone={load} />
         </div>
       </div>
 

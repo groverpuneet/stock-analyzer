@@ -149,5 +149,10 @@ def nse_daily_audit(context) -> None:
 )
 def india_fear_greed(context) -> None:
     from data_collectors.fear_greed_collector import compute_india_fear_greed
-    r = compute_india_fear_greed()
+    from utils.db import refresh_log
+    # Record the run so the "computed" timestamp on the dashboard widget is accurate
+    # even when this asset is materialized on its own (e.g. the 🔄 button).
+    with refresh_log("fear_greed") as meta:
+        r = compute_india_fear_greed()
+        meta["rows"] = 1
     context.log.info(f"India F&G: {r['score']} ({r['rating']})")
