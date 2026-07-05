@@ -1,0 +1,12 @@
+# Stable local DAGSTER_HOME for native `dagster dev` (SQLite storage).
+# Created to stop each restart spawning a throwaway .tmp_dagster_home_* dir,
+# which lost run history and left the Job Runs page / refresh UI without a
+# stable run-storage path. Default SQLite storage lives under this dir.
+telemetry:
+  enabled: false
+
+# Give the user-code gRPC server more time to boot — heavy imports
+# (torch / FinBERT / playwright) previously blew the default 180s timeout,
+# killing the code location and breaking every manual refresh.
+code_servers:
+  local_startup_timeout: 360

@@ -34,6 +34,9 @@ logs/*.log
 # Dagster local dev home (transient)
 .tmp_dagster_home_*/
 dagster_home/
+# Stable Dagster home: version the config, ignore the SQLite run storage
+.dagster_home/*
+!.dagster_home/dagster.yaml
 
 # Stray build artifact
 /main
