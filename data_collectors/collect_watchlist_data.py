@@ -3,6 +3,7 @@ from kiteconnect import KiteConnect
 from dotenv import load_dotenv
 import psycopg2
 from datetime import datetime, timedelta
+from kite_auth.readonly_kite import wrap_readonly
 
 load_dotenv()
 
@@ -19,7 +20,7 @@ def get_kite_client():
         access_token = f.read().strip()
     kite = KiteConnect(api_key=os.getenv('KITE_API_KEY'))
     kite.set_access_token(access_token)
-    return kite
+    return wrap_readonly(kite)
 
 def get_watchlist_stocks(watchlist_name='Default'):
     conn = psycopg2.connect(**DB_PARAMS)

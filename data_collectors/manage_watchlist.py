@@ -2,6 +2,7 @@ import psycopg2
 from kiteconnect import KiteConnect
 import os
 from dotenv import load_dotenv
+from kite_auth.readonly_kite import wrap_readonly
 
 load_dotenv()
 
@@ -18,7 +19,7 @@ def get_kite_client():
         access_token = f.read().strip()
     kite = KiteConnect(api_key=os.getenv('KITE_API_KEY'))
     kite.set_access_token(access_token)
-    return kite
+    return wrap_readonly(kite)
 
 def add_to_watchlist(symbols, watchlist_name='Default'):
     """Add stocks to watchlist"""

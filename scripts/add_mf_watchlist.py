@@ -73,7 +73,8 @@ def get_kite():
         tok = f.read().strip()
     kite = KiteConnect(api_key=os.getenv('KITE_API_KEY'))
     kite.set_access_token(tok)
-    return kite
+    from kite_auth.readonly_kite import wrap_readonly
+    return wrap_readonly(kite)
 
 
 def best_match(target, amc_kw, mf):
