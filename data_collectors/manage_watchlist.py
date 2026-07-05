@@ -1,8 +1,12 @@
 import psycopg2
-from kiteconnect import KiteConnect
 import os
+import sys
+import zlib
 from dotenv import load_dotenv
-from kite_auth.readonly_kite import wrap_readonly
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from data_collectors.nse_bhavcopy import latest_cm_bhavcopy, cm_rows_by_symbol
 
 load_dotenv()
 
@@ -14,51 +18,58 @@ DB_PARAMS = {
     'port': '5432'
 }
 
-def get_kite_client():
-    with open('.kite_access_token', 'r') as f:
-        access_token = f.read().strip()
-    kite = KiteConnect(api_key=os.getenv('KITE_API_KEY'))
-    kite.set_access_token(access_token)
-    return wrap_readonly(kite)
+EXCHANGE = 'NSE'
+
+
+def _synthetic_token(isin):
+    """Negative, collision-free instrument_token derived from the ISIN."""
+    return -(zlib.crc32((isin or '').encode()) & 0x7fffffff)
+
+
+def get_nse_symbol_master():
+    """NSE equity symbol master {tradingsymbol: bhavcopy row} from the free CM bhavcopy."""
+    _, rows = latest_cm_bhavcopy()
+    return cm_rows_by_symbol(rows)
 
 def add_to_watchlist(symbols, watchlist_name='Default'):
     """Add stocks to watchlist"""
-    kite = get_kite_client()
+    by_symbol = get_nse_symbol_master()
     conn = psycopg2.connect(**DB_PARAMS)
     cursor = conn.cursor()
-    
-    instruments = kite.instruments('NSE')
-    
+
     for symbol in symbols:
-        instrument = next((i for i in instruments if i['tradingsymbol'] == symbol), None)
-        if not instrument:
+        row = by_symbol.get(symbol)
+        if not row:
             print(f"✗ {symbol} not found")
             continue
-        
+
+        isin = (row.get('ISIN') or '').strip()
+        name = (row.get('FinInstrmNm') or '').strip()
         # Add stock if not exists
         cursor.execute("""
-            INSERT INTO stocks (instrument_token, exchange_token, tradingsymbol, name, exchange, segment, instrument_type, tick_size, lot_size)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO stocks (instrument_token, exchange_token, tradingsymbol, name, exchange, segment, instrument_type, tick_size, lot_size, market)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (exchange, tradingsymbol) DO NOTHING
             RETURNING id
         """, (
-            instrument['instrument_token'],
-            instrument.get('exchange_token', ''),
-            instrument['tradingsymbol'],
-            instrument['name'],
-            instrument['exchange'],
-            instrument.get('segment', ''),
-            instrument.get('instrument_type', ''),
-            instrument.get('tick_size', 0),
-            instrument.get('lot_size', 1)
+            _synthetic_token(isin),
+            isin,
+            symbol,
+            name,
+            EXCHANGE,
+            'NSE',
+            'EQ',
+            0.05,
+            1,
+            'NSE',
         ))
-        
+
         result = cursor.fetchone()
         if result:
             stock_id = result[0]
         else:
-            cursor.execute("SELECT id FROM stocks WHERE tradingsymbol = %s AND exchange = %s", 
-                         (instrument['tradingsymbol'], instrument['exchange']))
+            cursor.execute("SELECT id FROM stocks WHERE tradingsymbol = %s AND exchange = %s",
+                         (symbol, EXCHANGE))
             stock_id = cursor.fetchone()[0]
         
         # Add to watchlist

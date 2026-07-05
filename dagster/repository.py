@@ -1,7 +1,7 @@
 """
 dagster/repository.py — thin orchestration entrypoint for the stock-analyzer code location.
 
-Assets live in dagster/assets/{kite_infra,nse_daily,nse_weekly,nse_monthly,us_daily,us_weekly}.py.
+Assets live in dagster/assets/{nse_daily,nse_weekly,nse_monthly,us_daily,us_weekly}.py.
 Jobs in dagster/jobs.py, schedules in dagster/schedules.py, sensors in dagster/sensors.py.
 This file only imports them and assembles Definitions.
 
@@ -25,7 +25,6 @@ for _p in (_ROOT, _HERE):
 
 from dagster import Definitions  # noqa: E402
 
-from assets.kite_infra import kite_token_refreshed  # noqa: E402
 from assets.nse_daily import (  # noqa: E402
     nse_raw_prices, nse_technical_indicators, nse_fii_dii_flows, nse_corporate_actions,
     nse_news_sentiment, nse_fno_data, nse_block_deals, bse_bulk_deals, nse_signals,
@@ -48,8 +47,6 @@ from sensors import ALL_SENSORS  # noqa: E402
 
 defs = Definitions(
     assets=[
-        # kite_infra
-        kite_token_refreshed,
         # nse_daily
         nse_raw_prices, nse_technical_indicators, nse_fii_dii_flows, nse_corporate_actions,
         nse_news_sentiment, nse_fno_data, nse_block_deals, bse_bulk_deals, nse_signals,

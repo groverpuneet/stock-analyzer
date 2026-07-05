@@ -2,17 +2,19 @@
 scripts/add_watchlist_stocks.py
 One-off: add a batch of NSE symbols to the Default watchlist.
 
-Looks up each symbol in the live Kite NSE instruments list, upserts the
-instrument into the stocks table (ON CONFLICT no-op/update), then inserts a
-Default watchlist row for it. Read-only against Kite (instruments only);
-never touches portfolio/holdings/orders.
+Looks up each symbol in the free NSE CM bhavcopy symbol master (see
+data_collectors/nse_bhavcopy.py), upserts the instrument into the stocks table
+(ON CONFLICT no-op/update), then inserts a Default watchlist row for it. New
+stock rows get a synthetic negative instrument_token derived from the ISIN.
 """
 import os
 import sys
+import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.db import get_conn
+from data_collectors.nse_bhavcopy import latest_cm_bhavcopy, cm_rows_by_symbol
 
 MARKET = 'NSE'
 EXCHANGE = 'NSE'
@@ -37,22 +39,16 @@ SYMBOLS = [
 ]
 
 
-def _get_kite_client():
-    from kiteconnect import KiteConnect
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    with open(os.path.join(root, '.kite_access_token')) as f:
-        access_token = f.read().strip()
-    kite = KiteConnect(api_key=os.getenv('KITE_API_KEY'))
-    kite.set_access_token(access_token)
-    return kite
+def _synthetic_token(isin: str) -> int:
+    """Negative, collision-free instrument_token derived from the ISIN."""
+    return -(zlib.crc32((isin or '').encode()) & 0x7fffffff)
 
 
 def main():
-    kite = _get_kite_client()
-    print("Fetching NSE instrument list from Kite...")
-    instruments = kite.instruments('NSE')
-    by_symbol = {i['tradingsymbol']: i for i in instruments}
-    print(f"Fetched {len(instruments)} NSE instruments")
+    print("Fetching NSE CM bhavcopy symbol master...")
+    bhav_date, rows = latest_cm_bhavcopy()
+    by_symbol = cm_rows_by_symbol(rows)
+    print(f"Bhavcopy {bhav_date}: {len(by_symbol)} equity symbols")
 
     conn = get_conn()
     cur = conn.cursor()
@@ -63,36 +59,35 @@ def main():
     already_watch = 0
 
     for sym in SYMBOLS:
-        inst = by_symbol.get(sym)
-        if not inst:
+        row = by_symbol.get(sym)
+        if not row:
             not_found.append(sym)
             print(f"  NOT FOUND on NSE: {sym}")
             continue
 
+        isin = (row.get('ISIN') or '').strip()
+        name = (row.get('FinInstrmNm') or '').strip()
+        # instrument_token set only on INSERT; existing rows keep their token.
         cur.execute("""
             INSERT INTO stocks
                 (instrument_token, exchange_token, tradingsymbol, name,
                  exchange, segment, instrument_type, tick_size, lot_size, market)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (exchange, tradingsymbol) DO UPDATE SET
-                instrument_token = EXCLUDED.instrument_token,
-                exchange_token   = EXCLUDED.exchange_token,
                 name             = EXCLUDED.name,
-                tick_size        = EXCLUDED.tick_size,
-                lot_size         = EXCLUDED.lot_size,
                 market           = EXCLUDED.market,
                 updated_at       = CURRENT_TIMESTAMP
             RETURNING id, (xmax = 0) AS is_insert
         """, (
-            inst['instrument_token'],
-            inst.get('exchange_token', ''),
-            inst['tradingsymbol'],
-            inst.get('name', ''),
-            inst['exchange'],
-            inst.get('segment', 'NSE'),
-            inst.get('instrument_type', 'EQ'),
-            inst.get('tick_size', 0.05),
-            inst.get('lot_size', 1),
+            _synthetic_token(isin),
+            isin,
+            sym,
+            name,
+            EXCHANGE,
+            'NSE',
+            'EQ',
+            0.05,
+            1,
             MARKET,
         ))
         stock_id, is_insert = cur.fetchone()

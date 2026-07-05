@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/data", tags=["data"])
 # Keyed by table (not refresh_source) because a couple of refresh_source labels are
 # shared/ambiguous (e.g. "insider_bulk"). Tables absent here simply show no next-run.
 _TABLE_SCHED_SOURCE = {
-    "daily_prices": "kite_ohlcv",
+    "daily_prices": "nse_ohlcv",
     "technical_indicators": "tech_indicators",
     "fii_dii_flows": "fii_dii",
     "fno_data": "fno_data",

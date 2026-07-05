@@ -7,7 +7,6 @@ debugging, and backfill — without needing to open the Dagster UI.
 
 Dagster equivalents for each flag:
   --status          →  python scheduler/daily_tasks.py --status  (still the fastest way)
-  --kite-token      →  dagster job execute -f dagster/repository.py --job kite_token_job
   --fii             →  dagster asset materialize -f dagster/repository.py --select nse_fii_dii_flows
   --fno             →  dagster asset materialize -f dagster/repository.py --select nse_fno_data
   --block-deals     →  dagster asset materialize -f dagster/repository.py --select nse_block_deals
@@ -30,7 +29,6 @@ Start Dagster:
 
 Commands:
   python scheduler/daily_tasks.py --status           # show data_refresh_log
-  python scheduler/daily_tasks.py --kite-token       # refresh Kite access token
   python scheduler/daily_tasks.py --fii              # run FII/DII only
   python scheduler/daily_tasks.py --fno              # run F&O data (VIX + PCR)
   python scheduler/daily_tasks.py --block-deals      # NSE block deals only
@@ -65,7 +63,6 @@ from data_collectors.insider_bulk_collector import collect_insider_and_bulk
 from data_collectors.news_collector import collect_news
 from data_collectors.expand_stock_universe import run_expand_universe
 from data_collectors.shareholding_collector import collect_shareholding
-from kite_auth.auto_login import refresh_token as kite_refresh_token
 from jobs.model_refresh import run_model_refresh
 from utils.logger import get_logger
 
@@ -78,7 +75,7 @@ def task_ohlcv():
     log.info("=== TASK START: OHLCV prices ===")
     from utils.db import refresh_log
     try:
-        with refresh_log('kite_ohlcv') as rl:
+        with refresh_log('nse_ohlcv') as rl:
             collect_data(watchlist_name='Default', days=5, include_quotes=True)
             rl['rows'] = 10
         log.info("=== TASK DONE: OHLCV prices ===")
@@ -252,15 +249,6 @@ def task_expand_universe():
         log.error(f"=== TASK FAILED: Expand stock universe — {e} ===", exc_info=True)
 
 
-def task_kite_token():
-    log.info("=== TASK START: Kite token refresh ===")
-    try:
-        kite_refresh_token()
-        log.info("=== TASK DONE: Kite token refresh ===")
-    except Exception as e:
-        log.error(f"=== TASK FAILED: Kite token refresh — {e} ===", exc_info=True)
-
-
 # ── Pipelines ──────────────────────────────────────────────────────────────────
 
 def run_daily_pipeline():
@@ -318,8 +306,6 @@ if __name__ == "__main__":
 
     if '--status' in args:
         print_status()
-    elif '--kite-token' in args:
-        task_kite_token()
     elif '--screener' in args:
         task_screener()
     elif '--fii' in args:
@@ -363,7 +349,6 @@ The scheduler is now Dagster. To start it:
 
 Manual task flags (for debugging / backfill):
   --status           show data refresh log
-  --kite-token       refresh Kite access token
   --fii              FII/DII flows
   --fno              F&O data (India VIX + PCR from NSE archives)
   --block-deals      NSE block deals (large negotiated trades)

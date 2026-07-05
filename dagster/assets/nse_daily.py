@@ -4,30 +4,17 @@ from dagster import asset
 
 @asset(
     group_name="nse_daily",
-    deps=["kite_token_refreshed"],   # prices need a fresh Kite token (refreshed 08:00 IST)
     description=(
-        "OHLCV daily prices + live quotes for watchlist stocks via Kite Connect. "
-        "Guards on token validity — if the Kite token is missing/expired the NSE pipeline "
-        "is skipped for the day (logged) rather than crashing downstream assets."
+        "OHLCV daily prices + live quotes for watchlist stocks from the NSE bhavcopy. "
+        "No external broker token required."
     ),
 )
 def nse_raw_prices(context) -> None:
-    import os
-    from data_collectors.collect_watchlist_data import collect_data, get_kite_client
+    from data_collectors.collect_watchlist_data import collect_data
     from utils.db import refresh_log
-    # Token guard: a cheap validity probe. If it fails, record it (so the refresh
-    # page shows kite_ohlcv as failed, not silently stale) and skip the NSE pipeline.
-    try:
-        kite = get_kite_client()
-        kite.ltp(["NSE:RELIANCE"])   # lightweight read-only call
-    except Exception as e:  # noqa: BLE001
-        context.log.error(f"Kite token invalid — skipping NSE prices today: {e}")
-        with refresh_log("kite_ohlcv") as rl:
-            rl["rows"] = 0
-            raise RuntimeError(f"Kite token invalid — prices skipped: {e}")
-    # Wrap in refresh_log so data_refresh_log('kite_ohlcv') reflects this run
+    # Wrap in refresh_log so data_refresh_log('nse_ohlcv') reflects this run
     # (collect_data itself does not log; the CLI path wraps it the same way).
-    with refresh_log("kite_ohlcv") as rl:
+    with refresh_log("nse_ohlcv") as rl:
         collect_data(watchlist_name="Default", days=5, include_quotes=True)
         rl["rows"] = 10
     context.log.info("NSE OHLCV prices collected")

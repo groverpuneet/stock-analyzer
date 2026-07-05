@@ -29,7 +29,7 @@ from jobs import (  # noqa: E402
 
 # data_refresh_log source -> the job that refreshes it (for the watchdog)
 SOURCE_JOB = {
-    "kite_ohlcv": "nse_daily_job", "kite_quotes": "nse_daily_job", "tech_indicators": "nse_daily_job",
+    "nse_ohlcv": "nse_daily_job", "nse_quotes": "nse_daily_job", "tech_indicators": "nse_daily_job",
     "fii_dii": "nse_daily_job", "nse_actions": "nse_daily_job", "news_sentiment": "nse_daily_job",
     "signals": "nse_daily_job", "block_deals": "nse_daily_job",
     "fno_data": "nse_fno_job", "bulk_deals": "bse_bulk_job",

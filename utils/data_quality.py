@@ -287,7 +287,7 @@ def fill_gaps(gaps: list[dict] = None, max_retries: int = 2) -> dict:
         from data_collectors.backfill_watchlist_prices import backfill_stale_watchlist_prices
         r = backfill_stale_watchlist_prices(days=30)
         filled["missing_ohlcv"] = r.get("stocks_filled", 0)
-        _bump_retry("kite_ohlcv")
+        _bump_retry("nse_ohlcv")
 
     if "missing_indicator" in by_type:
         from analysis.calculate_indicators import calculate_all_indicators

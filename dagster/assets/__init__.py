@@ -2,7 +2,7 @@
 
 Path bootstrap: put the dagster/ dir first (so sibling modules — jobs, schedules,
 sensors, assets.* — import by bare name) and the project root second (so the
-collector packages data_collectors/analysis/utils/kite_auth resolve). The local
+collector packages data_collectors/analysis/utils resolve). The local
 dagster/ dir shadows the project-root jobs/ package on the bare name `jobs`;
 nse_monthly loads jobs/model_refresh.py by explicit file path to avoid that.
 """

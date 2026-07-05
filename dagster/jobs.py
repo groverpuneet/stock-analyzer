@@ -14,12 +14,6 @@ for _p in (_ROOT, _HERE):
 
 from dagster import define_asset_job, AssetSelection  # noqa: E402
 
-kite_token_job = define_asset_job(
-    name="kite_token_job",
-    selection=AssetSelection.groups("kite_infra"),
-    description="Daily Kite access token refresh via Playwright + pyotp. Runs before nse_daily_job.",
-)
-
 nse_daily_job = define_asset_job(
     name="nse_daily_job",
     selection=AssetSelection.groups("nse_daily"),
@@ -87,7 +81,7 @@ telegram_digest_job = define_asset_job(
 )
 
 ALL_JOBS = [
-    kite_token_job, nse_daily_job, nse_news_job, nse_fno_job, bse_bulk_job,
+    nse_daily_job, nse_news_job, nse_fno_job, bse_bulk_job,
     nse_weekly_job, nse_monthly_job, us_daily_job, us_weekly_job,
     nse_indicator_recompute_job, nse_gap_fill_job, telegram_digest_job,
 ]

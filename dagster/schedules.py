@@ -11,29 +11,11 @@ for _p in (_ROOT, _HERE):
 from dagster import ScheduleDefinition, DefaultScheduleStatus  # noqa: E402
 
 from jobs import (  # noqa: E402  (dagster/jobs.py — dagster dir is first on sys.path)
-    kite_token_job, nse_daily_job, nse_weekly_job, nse_monthly_job,
+    nse_daily_job, nse_weekly_job, nse_monthly_job,
     nse_fno_job, bse_bulk_job, us_daily_job, us_weekly_job, telegram_digest_job,
 )
 
 _RUNNING = DefaultScheduleStatus.RUNNING   # all schedules enabled by default
-
-kite_token_schedule = ScheduleDefinition(
-    name="kite_token_daily",
-    job=kite_token_job,
-    cron_schedule="0 8 * * *",        # 08:00 IST daily
-    execution_timezone="Asia/Kolkata",
-    default_status=_RUNNING,
-    description="Refresh Kite access token before NSE market open (09:15 IST).",
-)
-
-kite_token_retry_schedule = ScheduleDefinition(
-    name="kite_token_retry",
-    job=kite_token_job,
-    cron_schedule="*/15 8-9 * * 1-5",   # every 15 min, 08:00-09:59 IST weekdays (give up at 10:00)
-    execution_timezone="Asia/Kolkata",
-    default_status=_RUNNING,
-    description="Retry Kite token refresh every 15 min until 10 AM IST in case the 08:00 run failed.",
-)
 
 nse_daily_schedule = ScheduleDefinition(
     name="nse_daily_market",
@@ -101,14 +83,14 @@ us_weekly_schedule = ScheduleDefinition(
 telegram_digest_schedule = ScheduleDefinition(
     name="telegram_digest_daily",
     job=telegram_digest_job,
-    cron_schedule="0 8 * * *",        # 08:00 IST daily (after kite_token_job at 08:00)
+    cron_schedule="0 8 * * *",        # 08:00 IST daily
     execution_timezone="Asia/Kolkata",
     default_status=_RUNNING,
     description="Push the morning digest to Telegram every day at 08:00 IST.",
 )
 
 ALL_SCHEDULES = [
-    kite_token_schedule, kite_token_retry_schedule, nse_daily_schedule, nse_fno_schedule,
+    nse_daily_schedule, nse_fno_schedule,
     bse_bulk_schedule, nse_weekly_schedule, nse_monthly_schedule, us_daily_schedule, us_weekly_schedule,
     telegram_digest_schedule,
 ]

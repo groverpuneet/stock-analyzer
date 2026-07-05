@@ -2,7 +2,6 @@ pandas
 numpy
 psycopg2-binary
 sqlalchemy
-kiteconnect
 beautifulsoup4
 requests
 lxml

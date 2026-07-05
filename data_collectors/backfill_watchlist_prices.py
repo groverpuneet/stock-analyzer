@@ -8,9 +8,9 @@ Used by:
   - manual run after new stocks are added to a watchlist
   - the Dagster watchlist_change_sensor path (nse_daily_job covers the ongoing case)
 
-Only NSE equities/ETFs are fetched (Kite historical_data needs an NSE instrument
-token). Mutual-fund instruments (exchange='MF') carry NAV, not OHLCV, so they're
-skipped. Read-only Kite usage — historical_data only.
+Only NSE equities/ETFs are fetched. Mutual-fund instruments (exchange='MF')
+carry NAV, not OHLCV, so they're skipped. Data source: yfinance ("{SYMBOL}.NS"),
+raw (non-adjusted) Close to match existing daily_prices.
 """
 import os
 import sys
@@ -24,11 +24,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import psycopg2
+import yfinance as yf
 
 log = logging.getLogger(__name__)
 
 DB_URL = os.environ.get("DATABASE_URL", "postgresql://puneetgrover@localhost/stock_analyzer")
-RATE_LIMIT_SEC = 0.35  # Kite historical API allows ~3 req/s; stay under it
+RATE_LIMIT_SEC = 1.0  # be polite to Yahoo between symbols
 
 _STALE_SQL = """
     SELECT s.id, s.instrument_token, s.tradingsymbol
@@ -54,12 +55,25 @@ _UPSERT = """
 """
 
 
-def _kite():
-    from kiteconnect import KiteConnect
-    token_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".kite_access_token")
-    kite = KiteConnect(api_key=os.getenv("KITE_API_KEY"))
-    kite.set_access_token(open(token_path).read().strip())
-    return kite
+def _yf_rows(symbol, start=None, period=None):
+    """Fetch daily OHLCV from yfinance; return list of (date, o, h, l, c, vol)."""
+    ticker = yf.Ticker(f"{symbol}.NS")
+    if period is not None:
+        df = ticker.history(period=period, auto_adjust=False)
+    else:
+        df = ticker.history(start=start, auto_adjust=False)
+    rows = []
+    for idx, r in df.iterrows():
+        vol = r.get("Volume")
+        rows.append((
+            idx.date(),
+            float(r["Open"]),
+            float(r["High"]),
+            float(r["Low"]),
+            float(r["Close"]),
+            int(vol) if vol == vol and vol is not None else None,  # NaN check
+        ))
+    return rows
 
 
 def backfill_stale_watchlist_prices(watchlist_name: str = "Default", days: int = 30) -> dict:
@@ -74,18 +88,16 @@ def backfill_stale_watchlist_prices(watchlist_name: str = "Default", days: int =
         return {"stale_stocks": 0, "stocks_filled": 0, "rows_upserted": 0, "errors": []}
 
     log.info(f"Backfilling {len(stale)} stale NSE stocks in '{watchlist_name}' ({days}d each)…")
-    kite = _kite()
-    to_date = datetime.now()
-    from_date = to_date - timedelta(days=days)
+    # pad the window so weekends/holidays still yield `days` of trading data
+    from_date = datetime.now() - timedelta(days=days)
 
     filled, total_rows, errors = 0, 0, []
     for stock_id, token, symbol in stale:
         try:
-            candles = kite.historical_data(token, from_date, to_date, "day")
+            rows = _yf_rows(symbol, start=from_date)
             n = 0
-            for c in candles:
-                cur.execute(_UPSERT, (stock_id, c["date"].date(), c["open"], c["high"],
-                                      c["low"], c["close"], c["volume"]))
+            for d, o, h, l, c, v in rows:
+                cur.execute(_UPSERT, (stock_id, d, o, h, l, c, v))
                 n += 1
             conn.commit()
             total_rows += n
@@ -97,10 +109,6 @@ def backfill_stale_watchlist_prices(watchlist_name: str = "Default", days: int =
             msg = str(e)
             errors.append({"symbol": symbol, "error": msg[:200]})
             log.warning(f"  {symbol}: FAILED — {msg[:160]}")
-            # Kite throttling: back off and continue
-            if "Too many requests" in msg or "rate" in msg.lower():
-                log.warning("  rate limited — sleeping 60s")
-                time.sleep(60)
         time.sleep(RATE_LIMIT_SEC)
 
     cur.close()

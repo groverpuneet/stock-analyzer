@@ -2,20 +2,20 @@
 data_collectors/full_history_backfill.py
 
 ONE-TIME full historical backfill for every NSE watchlist stock:
-  - Pull up to 2 years of daily OHLCV from Kite historical_data (Kite's day-candle
-    window). Recent listings simply return fewer candles.
-  - Polite 0.5s delay between calls; on 429 wait 60s and retry once.
+  - Pull up to ~2 years of daily OHLCV from yfinance ("{SYMBOL}.NS"), using raw
+    (non-adjusted) Close to match existing daily_prices. Recent listings simply
+    return fewer candles.
+  - Polite delay between calls.
   - INSERT ... ON CONFLICT DO NOTHING — safe to re-run, never overwrites.
   - After the backfill, recompute technical indicators for all watchlist stocks.
 
 The daily 16:00 job keeps appending new candles afterward — no change needed there.
-Read-only Kite usage (historical_data only). MF instruments (NAV, not OHLCV) skipped.
+MF instruments (NAV, not OHLCV) are skipped.
 """
 import os
 import sys
 import time
 import logging
-from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -23,13 +23,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import psycopg2
+import yfinance as yf
 
 log = logging.getLogger(__name__)
 
 DB_URL = os.environ.get("DATABASE_URL", "postgresql://puneetgrover@localhost/stock_analyzer")
-LOOKBACK_DAYS = 730          # ~2 years (Kite day-candle limit)
-DELAY = 0.5                  # polite spacing between calls
-TOKEN_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".kite_access_token")
+LOOKBACK_PERIOD = "2y"       # ~2 years of daily history
+DELAY = 1.0                  # polite spacing between calls
 
 _STOCKS_SQL = """
     SELECT s.id, s.instrument_token, s.tradingsymbol
@@ -45,23 +45,21 @@ _INSERT = """
 """
 
 
-def _kite():
-    from kiteconnect import KiteConnect
-    kite = KiteConnect(api_key=os.getenv("KITE_API_KEY"))
-    kite.set_access_token(open(TOKEN_PATH).read().strip())
-    return kite
-
-
-def _fetch_with_retry(kite, token, from_date, to_date):
-    """One retry on rate-limit (429 / 'Too many requests')."""
-    try:
-        return kite.historical_data(token, from_date, to_date, "day")
-    except Exception as e:  # noqa: BLE001
-        if "Too many requests" in str(e) or "429" in str(e):
-            log.warning("  rate limited — sleeping 60s then retrying once")
-            time.sleep(60)
-            return kite.historical_data(token, from_date, to_date, "day")
-        raise
+def _yf_rows(symbol, period):
+    """Fetch daily OHLCV from yfinance; return list of (date, o, h, l, c, vol)."""
+    df = yf.Ticker(f"{symbol}.NS").history(period=period, auto_adjust=False)
+    rows = []
+    for idx, r in df.iterrows():
+        vol = r.get("Volume")
+        rows.append((
+            idx.date(),
+            float(r["Open"]),
+            float(r["High"]),
+            float(r["Low"]),
+            float(r["Close"]),
+            int(vol) if vol == vol and vol is not None else None,  # NaN check
+        ))
+    return rows
 
 
 def full_backfill(watchlist="Default") -> dict:
@@ -69,27 +67,22 @@ def full_backfill(watchlist="Default") -> dict:
     cur = conn.cursor()
     cur.execute(_STOCKS_SQL, (watchlist,))
     stocks = cur.fetchall()
-    log.info(f"Full backfill: {len(stocks)} NSE watchlist stocks, up to {LOOKBACK_DAYS}d each…")
+    log.info(f"Full backfill: {len(stocks)} NSE watchlist stocks, up to {LOOKBACK_PERIOD} each…")
 
-    kite = _kite()
-    to_date = datetime.now()
-    from_date = to_date - timedelta(days=LOOKBACK_DAYS)
     filled, inserted, errors = 0, 0, []
 
     for stock_id, token, symbol in stocks:
         try:
-            candles = _fetch_with_retry(kite, token, from_date, to_date)
-            before = cur.rowcount  # not reliable across executes; count via len + conflict
+            rows = _yf_rows(symbol, LOOKBACK_PERIOD)
             n_new = 0
-            for c in candles:
-                cur.execute(_INSERT, (stock_id, c["date"].date(), c["open"], c["high"],
-                                      c["low"], c["close"], c["volume"]))
+            for d, o, h, l, c, v in rows:
+                cur.execute(_INSERT, (stock_id, d, o, h, l, c, v))
                 n_new += cur.rowcount  # 1 if inserted, 0 if conflict-skipped
             conn.commit()
             inserted += n_new
-            if candles:
+            if rows:
                 filled += 1
-            log.info(f"  {symbol}: {len(candles)} candles fetched, {n_new} new rows")
+            log.info(f"  {symbol}: {len(rows)} candles fetched, {n_new} new rows")
         except Exception as e:  # noqa: BLE001
             conn.rollback()
             errors.append({"symbol": symbol, "error": str(e)[:200]})

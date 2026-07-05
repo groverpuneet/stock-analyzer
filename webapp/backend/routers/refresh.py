@@ -20,8 +20,8 @@ router = APIRouter(prefix="/api/refresh", tags=["refresh"])
 
 # source -> what it provides + the Dagster asset that refreshes it (None = no asset wired)
 SOURCE_META: dict[str, dict] = {
-    "kite_ohlcv": {"provides": "Daily OHLCV prices (watchlist)", "asset": "nse_raw_prices"},
-    "kite_quotes": {"provides": "Live quotes (watchlist)", "asset": "nse_raw_prices"},
+    "nse_ohlcv": {"provides": "Daily OHLCV prices (watchlist)", "asset": "nse_raw_prices"},
+    "nse_quotes": {"provides": "Live quotes (watchlist)", "asset": "nse_raw_prices"},
     "tech_indicators": {"provides": "RSI, SMA, EMA, MACD, Bollinger Bands", "asset": "nse_technical_indicators"},
     "signals": {"provides": "BUY/SELL/WATCH signal report", "asset": "nse_signals"},
     "fii_dii": {"provides": "FII / DII net flows", "asset": "nse_fii_dii_flows"},
@@ -45,7 +45,6 @@ SOURCE_META: dict[str, dict] = {
     "sec_form4": {"provides": "US insider trades (SEC Form 4)", "asset": "us_insider_trades"},
     "fred_macro": {"provides": "US macro (FRED: rates, CPI, GDP, …)", "asset": "us_macro"},
     "sec_13f": {"provides": "US 13F institutional holdings", "asset": "us_13f_holdings"},
-    "kite_token": {"provides": "Kite access token (daily refresh)", "asset": "kite_token_refreshed"},
     "sast_disclosures": {"provides": "SAST substantial-acquisition disclosures", "asset": "nse_sast_disclosures"},
     "pledging_alerts": {"provides": "Promoter share-pledging alerts", "asset": "nse_pledging_alerts"},
     "analyst_targets": {"provides": "Analyst price targets", "asset": "nse_analyst_targets"},
@@ -61,7 +60,7 @@ TIER_MAX_AGE_DAYS = {"daily": 2, "weekly": 8, "monthly": 35, "quarterly": 100}
 # Which sources back each page's data (for the "Last updated" badge).
 PAGE_SOURCES = {
     "dashboard": ["signals", "tech_indicators"],
-    "stock": ["kite_ohlcv", "tech_indicators"],
+    "stock": ["nse_ohlcv", "tech_indicators"],
     "macro": ["rbi_dbie", "mospi_macro", "rbi_macro", "fred_macro"],
     "watchlist": ["signals", "tech_indicators"],
     "opportunities": ["news_sentiment", "insider_trades"],
@@ -101,8 +100,7 @@ JOB_GROUPS = [
         "id": "india_daily", "title": "India Daily", "flag": "🇮🇳", "region": "India",
         "cron": "0 16 * * 1-5", "tz": IST, "sched_label": "Mon–Fri 16:00 IST",
         "jobs": [
-            ("kite_token", "Kite Token", "0 8 * * *", IST, "Daily 08:00 IST"),
-            ("kite_ohlcv", "OHLCV Prices", None, None, None),
+            ("nse_ohlcv", "OHLCV Prices", None, None, None),
             ("tech_indicators", "Technicals", None, None, None),
             ("fii_dii", "FII / DII", "30 16 * * 1-5", IST, "Mon–Fri 16:30 IST"),
             ("fno_data", "F&O Data", "45 16 * * 1-5", IST, "Mon–Fri 16:45 IST"),
@@ -279,7 +277,7 @@ def last_updated(sources: str = "", page: str = ""):
 
 # data_refresh_log source -> data_quality_log.table_name (for gap counts per source)
 SOURCE_TABLE = {
-    "kite_ohlcv": "daily_prices", "tech_indicators": "technical_indicators",
+    "nse_ohlcv": "daily_prices", "tech_indicators": "technical_indicators",
     "screener": "fundamentals", "fundamentals_full": "fundamentals",
     "news_sentiment": "news_sentiment", "shareholding_pattern": "shareholding_pattern",
     "signals": "stock_scores",

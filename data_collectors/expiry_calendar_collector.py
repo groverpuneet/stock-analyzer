@@ -1,14 +1,15 @@
 """
 data_collectors/expiry_calendar_collector.py
 
-Collects F&O expiry dates from Kite Connect NFO instrument list.
+Collects F&O expiry dates from the NSE F&O (UDiFF) bhavcopy — a free,
+non-brokerage source (see data_collectors/nse_bhavcopy.py).
 
 Classifies each expiry date as:
   weekly    — NIFTY-only CE/PE options expiring within 60 days (every Tuesday)
   monthly   — All stocks + FUT + CE/PE, within 95 days (end of each calendar month)
   quarterly — Long-dated index options or far monthly contracts (> 95 days out)
 
-Source: Kite Connect instruments('NFO') — no extra API call beyond what kite_collector already uses.
+Source: latest_fo_bhavcopy() — public NSE F&O bhavcopy ZIP, no auth.
 Schedule: Weekly Sunday 07:30 IST (nse_weekly group, via nse_expiry_calendar Dagster asset)
 Table: expiry_calendar
 """
@@ -35,31 +36,28 @@ def _classify(expiry_dt: date, has_futures: bool, symbol_count: int, today: date
 
 
 def collect_expiry_calendar() -> dict:
-    from kiteconnect import KiteConnect
     from collections import defaultdict
 
-    api_key = os.getenv('KITE_API_KEY')
-    token_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.kite_access_token')
-    access_token = open(token_path).read().strip()
+    from data_collectors.nse_bhavcopy import latest_fo_bhavcopy
 
-    kite = KiteConnect(api_key=api_key)
-    kite.set_access_token(access_token)
-
-    log.info("Fetching NFO instruments from Kite...")
-    instruments = kite.instruments('NFO')
-    log.info(f"Fetched {len(instruments)} NFO instruments")
+    log.info("Fetching F&O bhavcopy from NSE...")
+    bhav_date, instruments = latest_fo_bhavcopy()
+    log.info(f"Fetched {len(instruments)} F&O contracts from bhavcopy dated {bhav_date}")
 
     today = date.today()
     expiry_stats = defaultdict(lambda: {'FUT': 0, 'CE': 0, 'PE': 0, 'symbols': set()})
     for inst in instruments:
-        if not inst.get('expiry'):
+        key = (inst.get('XpryDt') or '').strip()[:10]  # ISO YYYY-MM-DD
+        if not key:
             continue
-        exp_date = inst['expiry']  # already a date object from kiteconnect
-        key = exp_date.isoformat()
-        inst_type = inst.get('instrument_type', '')
+        fin_tp = (inst.get('FinInstrmTp') or '').strip()
+        if fin_tp in ('STF', 'IDF'):
+            inst_type = 'FUT'
+        else:
+            inst_type = (inst.get('OptnTp') or '').strip()  # CE / PE
         if inst_type in ('FUT', 'CE', 'PE'):
             expiry_stats[key][inst_type] += 1
-        expiry_stats[key]['symbols'].add(inst.get('name', ''))
+        expiry_stats[key]['symbols'].add((inst.get('TckrSymb') or '').strip())
 
     rows = []
     for date_str, stats in sorted(expiry_stats.items()):
@@ -83,7 +81,7 @@ def collect_expiry_calendar() -> dict:
                 """
                 INSERT INTO expiry_calendar
                     (expiry_date, expiry_type, segment, symbol_count, has_futures, source, fetched_at)
-                VALUES (%s, %s, 'NFO', %s, %s, 'kite_nfo', NOW())
+                VALUES (%s, %s, 'NFO', %s, %s, 'nse_bhavcopy', NOW())
                 ON CONFLICT (expiry_date) DO UPDATE SET
                     expiry_type  = EXCLUDED.expiry_type,
                     symbol_count = EXCLUDED.symbol_count,
