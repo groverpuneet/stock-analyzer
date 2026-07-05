@@ -1021,3 +1021,29 @@ Backfill: `python -c "from signals.engine import run_signals; run_signals()"` (a
 `GET /api/signals/explanation/{stock_id}?horizon=`. UI: `/signal-engine` (🎯 Signal Engine)
 — 3 horizon tabs, pillar badges, all-pillars-agree filter, slide-in explanation panel.
 Note: `duckduckgo_search` emits a deprecation warning (renamed to `ddgs`); still functional.
+
+## Broker data plane — Upstox (2026-07-05)
+
+Post-Kite data-source decision (see `DATA_SOURCES_RESEARCH.md`): broker APIs return as a
+**two-plane architecture**. DATA plane = Upstox (read-only 1-year **Analytics token**, order-
+incapable) primary + Angel One SmartAPI failover, both on **unfunded / zero-holding** accounts —
+so a leaked data token has nothing to sell. EXECUTION plane = Zerodha Kite only (funded, order-
+capable), isolated to a future live-execution service; never imported by data/research/backtest
+code, never exposed on tunnel/Telegram/public API.
+
+First integration — the **instrument master**, which every other Upstox feed keys off:
+- `data_collectors/upstox_instruments_collector.py` downloads the public gzip-JSON dump
+  (`assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz`, **no auth**) and:
+  - upserts all NSE F&O contracts (FUT/CE/PE with strike/expiry/lot) into `fno_instruments`
+  - stamps `instrument_key` (Upstox ISIN-based key, e.g. `NSE_EQ|INE466L01038`) + `isin`
+    onto existing `stocks` rows (UPDATE only — no universe flooding)
+- Migration `0025` adds `fno_instruments`, `intraday_prices` (daily_prices is EOD-only), and
+  `option_chain_snapshots` (Upstox returns Greeks server-side → stored directly), plus
+  `stocks.isin` / `stocks.instrument_key`.
+- Dagster asset `nse_upstox_instruments` (nse_daily). Refresh tag `upstox_instruments`.
+- Verified live: 43,002 F&O contracts across 219 underlyings; 2,375 equities keyed.
+
+Pending (need the Analytics token): historical candles → `daily_prices` / `intraday_prices`
+(daily to 2000, minutes to 2022), live quotes → `quotes`, option chain + Greeks →
+`option_chain_snapshots`. Upstox data endpoints run on the Analytics token (no daily re-auth,
+unlike Kite's 3:30 AM IST token death).

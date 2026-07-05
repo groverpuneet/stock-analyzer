@@ -3,7 +3,11 @@
 ## Ground Rules (read before every session)
 - No personal data on external surfaces: Never expose personal portfolio, holdings, P&L, or positions on any externally-reachable surface (ngrok/Cloudflare tunnel, Telegram bot, public API). Personal portfolio IS allowed as a **local-only** module (Session K): localhost/LAN + TOTP-gated + encrypted at rest, blocked on the tunnel. See ENGINEERING.md → "Session K (part 2) — Private Portfolio".
 - Public market data only: All integrations use publicly available market-wide data
-- Kite Connect scope: Use only for market data (OHLCV, quotes, instruments) — never call place_order, positions, holdings, or portfolio endpoints
+- Broker two-plane architecture (2026-07-05, supersedes the old "Kite for market data only" rule):
+  DATA plane = Upstox (read-only Analytics token, primary) + Angel One SmartAPI (failover) —
+  unfunded, order-incapable accounts. EXECUTION plane = Zerodha Kite ONLY — funded/order-capable,
+  isolated to the live-execution service, never imported by research/backtest/data code, never on
+  tunnel/Telegram/public API. See ENGINEERING.md → "Broker data plane — Upstox".
 - Token optimization: Local models (FinBERT) for bulk scoring, Claude API only for on-demand research queries
 - Dagster first: Every new collector must be wrapped as a Dagster asset with correct dependencies
 - Test before commit: Run collector against live DB, verify rows inserted, then commit
@@ -15,6 +19,15 @@
 ## Current Status
 
 ### DONE
+
+- [x] Upstox data plane — instrument master (2026-07-05)
+  - Migration 0025: `fno_instruments`, `intraday_prices`, `option_chain_snapshots` tables;
+    `isin`/`instrument_key` added to `stocks`; 5 `upstox_*` refresh tags seeded
+  - `data_collectors/upstox_instruments_collector.py` (public gzip-JSON, no token):
+    43,002 NSE F&O contracts → `fno_instruments`; 2,375 equities stamped with `instrument_key`/`isin`
+  - Dagster asset `nse_upstox_instruments` (nse_daily group). Verified against live DB.
+  - Upgrades the fragile F&O scrape to a contract-level master. Next: OHLCV/quotes/option-chain
+    (need the Upstox Analytics token).
 
 - [x] Session K — Private portfolio upload (2026-07-02)
   - Localhost/LAN-only holdings module: TOTP-gated, pgcrypto-encrypted at rest,

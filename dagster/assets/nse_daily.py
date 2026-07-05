@@ -83,6 +83,21 @@ def nse_fno_data(context) -> None:
 @asset(
     group_name="nse_daily",
     description=(
+        "Upstox instrument master (public gzip-JSON, no token required): upserts NSE "
+        "F&O contracts into fno_instruments and stamps instrument_key/isin onto existing "
+        "stocks so Upstox historical-candle calls resolve. Source tag: upstox_instruments."
+    ),
+)
+def nse_upstox_instruments(context) -> None:
+    from data_collectors.upstox_instruments_collector import collect_upstox_instruments
+    result = collect_upstox_instruments()
+    context.log.info(f"Upstox instruments: {result['fno_upserted']} F&O contracts, "
+                     f"{result['equities_keyed']} equities keyed")
+
+
+@asset(
+    group_name="nse_daily",
+    description=(
         "NSE block deals: large negotiated trades executed in the pre-open block window. "
         "Stored in bulk_deals table with deal_type=block. "
         "Source: NSE snapshot-capital-market-largedeal API."
