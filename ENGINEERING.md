@@ -1047,3 +1047,29 @@ Pending (need the Analytics token): historical candles → `daily_prices` / `int
 (daily to 2000, minutes to 2022), live quotes → `quotes`, option chain + Greeks →
 `option_chain_snapshots`. Upstox data endpoints run on the Analytics token (no daily re-auth,
 unlike Kite's 3:30 AM IST token death).
+
+## Backtest Phase 0a — corp-action adjustment factors (2026-07-05)
+
+First piece of the backtest data-integrity foundation: corp-action-adjusted price series so
+splits/bonus don't show as fake gaps in backtests.
+
+**KEY DATA-SEMANTICS FINDING:** `daily_prices` (yfinance Yahoo "Close") is ALREADY split/bonus-
+adjusted (Yahoo back-adjusts splits; only dividends are gated by `auto_adjust`). And
+`corporate_actions` is only a rolling forward ±90-day announcement window — no history. So
+historical split events come from yfinance `.splits`, and split factors are applied **only to a
+RAW series** (the future Upstox candles), never to the already-adjusted current `daily_prices`
+(that would double-adjust and create a fake gap).
+
+- `adjustment_factors` (migration 0026): per-event `(stock_id, ex_date, event_type, ratio,
+  price_factor = 1/split_ratio, source)`. yfinance folds bonus issues into the split ratio.
+- `data_collectors/adjustment_factors_collector.py`: pulls `.splits` for the watchlist
+  (117 events / 54 stocks), graceful per-ticker gaps. Dagster asset `nse_adjustment_factors`
+  (nse_weekly). Refresh tag `adjustment_factors`.
+- `backtest/adjustments.py`: source-state-aware. `adjusted_close(stock_id, price_state)` —
+  `SPLIT_ADJUSTED` (default, current daily_prices) → identity; `RAW` (Upstox) → apply factors.
+  `adj_close(t) = raw_close(t) * PROD(price_factor for events with ex_date > t)`.
+- Verified: WIPRO 2024-12-03 2:1 — identity on current data (no double-adjust); correct
+  continuity when applied to a simulated raw series.
+
+Remaining Phase 0: dividend/total-return factors; apply split factors once OHLCV moves to raw
+Upstox candles; then 0b (survivorship security master) + 0c (point-in-time signal replay).

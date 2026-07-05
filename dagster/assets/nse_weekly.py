@@ -17,6 +17,24 @@ def nse_stock_universe(context) -> None:
 @asset(
     group_name="nse_weekly",
     description=(
+        "Corp-action adjustment factors (splits/bonus) from yfinance .splits into "
+        "adjustment_factors — for backtest-grade adjusted price series (adj_close = "
+        "raw_close * PROD(price_factor for events with ex_date > date)). "
+        "Source tag: adjustment_factors."
+    ),
+)
+def nse_adjustment_factors(context) -> None:
+    from data_collectors.adjustment_factors_collector import collect_adjustment_factors
+    result = collect_adjustment_factors()
+    context.log.info(
+        f"Adjustment factors: {result['events']} split events across "
+        f"{result['stocks_with_events']} stocks ({result['stocks_failed']} failed)"
+    )
+
+
+@asset(
+    group_name="nse_weekly",
+    description=(
         "Fundamentals from Screener.in: P/E, P/B, ROE, ROCE, promoter holding, etc. "
         "Also refreshes ~10yr monthly P/E history (Screener chart API) into fundamentals "
         "and recomputes stock_scores.pe_percentile (current P/E vs the stock's own 5yr range)."

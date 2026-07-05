@@ -20,6 +20,15 @@
 
 ### DONE
 
+- [x] Backtest Phase 0a — corp-action adjustment factors (2026-07-05)
+  - Migration 0026: `adjustment_factors` (stock_id, ex_date, event_type, ratio, price_factor)
+  - `data_collectors/adjustment_factors_collector.py`: yfinance `.splits` → 117 split/bonus
+    events across 54 watchlist stocks (`corporate_actions` is forward-only, can't back-adjust)
+  - New `backtest/` package + `backtest/adjustments.py`: source-state-aware `adjusted_close`
+    (SPLIT_ADJUSTED default = current Yahoo daily_prices identity; RAW = apply factors for Upstox)
+  - Dagster asset `nse_adjustment_factors` (nse_weekly). Verified WIPRO 2:1 split continuity.
+  - **Finding:** `daily_prices` (Yahoo Close) is already SPLIT-adjusted, not dividend-adjusted.
+
 - [x] Upstox data plane — instrument master (2026-07-05)
   - Migration 0025: `fno_instruments`, `intraday_prices`, `option_chain_snapshots` tables;
     `isin`/`instrument_key` added to `stocks`; 5 `upstox_*` refresh tags seeded
