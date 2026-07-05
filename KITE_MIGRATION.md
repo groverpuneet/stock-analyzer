@@ -103,5 +103,10 @@ live in `stocks.tradingsymbol` where `instrument_type='MF'`; only MF table is `m
 - Move `nse_daily` schedule 16:00 → ~18:30 IST (bhavcopy publish time), OR keep 16:00 using yfinance
   for that run and let bhavcopy reconcile later. **Recommend:** bump to ~18:30 IST for authoritative EOD.
 
-_This note is the pre-work for removing Kite. **All sources verified — nothing deleted yet;
-awaiting go-ahead to execute the section-4 plan.**_
+## ✅ Status: EXECUTED (2026-07-04)
+
+Hard cutover complete (commit `379af77`). Kite removed entirely; NSE data runs on bhavcopy +
+yfinance + AMFI. Verified end-to-end through Dagster (`nse_raw_prices → technical_indicators →
+signals` all SUCCESS). `daily_prices` latest 2026-07-03, `expiry_calendar` 19 rows, `mf_nav` 18/18.
+**Remaining external action (user):** revoke the Kite app in the Zerodha developer console +
+rotate the Zerodha password/TOTP (were plaintext in `.env`).
