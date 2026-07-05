@@ -570,3 +570,6 @@
   - nse_daily_job: stale source(s) news_sentiment, block_deals, kite_quotes, fii_dii
   - us_daily_job: stale source(s) sec_form4, us_prices
   - nse_fno_job: stale source(s) fno_data
+
+### Watchdog retry — 2026-07-04 23:05
+  - nse_daily_job: stale source(s) nse_quotes
