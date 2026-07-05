@@ -8,6 +8,7 @@ import Opportunities from "./pages/Opportunities";
 import SmartMoney from "./pages/SmartMoney";
 import RiskAlerts from "./pages/RiskAlerts";
 import Refresh from "./pages/Refresh";
+import JobRuns from "./pages/JobRuns";
 import RawDataIndex from "./pages/RawDataIndex";
 import RawData from "./pages/RawData";
 import Portfolio from "./pages/Portfolio";
@@ -33,6 +34,7 @@ const nav = [
   { to: "/macro", label: "Macro" },
   { to: "/watchlist", label: "Watchlist" },
   { to: "/refresh", label: "Refresh" },
+  { to: "/job-runs", label: "Job Runs" },
   // Portfolio is private + localhost-only: only surface the tab on the host machine.
   ...(isLocalhost() ? [{ to: "/portfolio", label: "💼 Portfolio" }] : []),
 ];
@@ -200,6 +202,7 @@ export default function App() {
           <Route path="/smart-money" element={<SmartMoney />} />
           <Route path="/risk-alerts" element={<RiskAlerts />} />
           <Route path="/refresh" element={<Refresh />} />
+          <Route path="/job-runs" element={<JobRuns />} />
           <Route path="/data-sources" element={<Navigate to="/refresh" replace />} />
           <Route path="/refresh-status" element={<Navigate to="/refresh" replace />} />
           <Route path="/data" element={<RawDataIndex />} />

@@ -152,6 +152,7 @@ export const api = {
   triggerAudit: () => fetch("/api/refresh/trigger-audit", { method: "POST", credentials: "include" }).then((r) => r.json()),
   refreshControl: () => get<any>("/api/refresh/control"),
   refreshHealth: () => get<any>("/api/refresh/health"),
+  refreshRuns: () => get<any>("/api/refresh/runs?limit=50"),
   qualityHealth: () => get<any>("/api/quality/health"),
   qualityGaps: () => get<any>("/api/quality/gaps"),
   fearGreed: () => get<FearGreed>("/api/macro/fear-greed"),

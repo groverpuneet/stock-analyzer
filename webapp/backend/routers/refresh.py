@@ -3,7 +3,11 @@
 Everything reads from data_refresh_log (one row per source = its latest run).
 Manual "Refresh Now" launches the corresponding Dagster asset via GraphQL.
 """
-from datetime import datetime, timedelta
+import glob
+import json
+import os
+import sqlite3
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter
@@ -539,6 +543,195 @@ def refresh_health():
     h = _derive_health(jobs)
     return {"level": h["level"], "color": h["color"], "counts": h["counts"],
             "dagster_healthy": dagster_client.healthy()}
+
+
+# ---------------------------------------------------------------------------
+# Job Runs page: per-Dagster-run health, derived from the native SQLite storage
+# ---------------------------------------------------------------------------
+# Dagster here runs via `dagster dev` with SQLite storage under DAGSTER_HOME.
+# The run list lives in <home>/history/runs.db; per-run step events live in
+# <home>/history/runs/<run_id>.db. The run-level status is UNRELIABLE on this
+# box (runs finalize as FAILURE even when every step succeeded), so we roll up
+# each run's health from its per-step STEP_SUCCESS / STEP_FAILURE events.
+
+
+def _dagster_home() -> str | None:
+    """Resolve DAGSTER_HOME robustly.
+
+    Prefer the env var if it points at a dir with history/runs.db; otherwise
+    discover the most-recently-modified .tmp_dagster_home_* / .dagster_home dir
+    under the project root that contains history/runs.db."""
+    env = os.environ.get("DAGSTER_HOME")
+    if env and os.path.isfile(os.path.join(env, "history", "runs.db")):
+        return env
+    root = "/Users/puneetgrover/stock-analyzer"
+    candidates = glob.glob(os.path.join(root, ".tmp_dagster_home_*")) + [
+        os.path.join(root, ".dagster_home")
+    ]
+    valid = [c for c in candidates if os.path.isfile(os.path.join(c, "history", "runs.db"))]
+    if not valid:
+        return None
+    return max(valid, key=lambda c: os.path.getmtime(os.path.join(c, "history", "runs.db")))
+
+
+def _ro_connect(path: str) -> sqlite3.Connection:
+    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _run_ts_to_iso(val) -> str | None:
+    """Dagster stores create_timestamp as a naive UTC string and start/end_time
+    as float epoch seconds. Normalise either into an ISO string."""
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        return _iso(datetime.fromtimestamp(val))
+    # string like '2026-07-02 11:24:51.973741' (naive UTC) -> local ISO
+    try:
+        dt = datetime.fromisoformat(str(val).replace(" ", "T"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return _iso(dt.astimezone().replace(tzinfo=None))
+    except Exception:  # noqa: BLE001
+        return str(val)
+
+
+def _triggered_by(tags: dict) -> str:
+    if tags.get("dagster/schedule_name"):
+        return f"schedule: {tags['dagster/schedule_name']}"
+    if tags.get("dagster/sensor_name"):
+        return f"sensor: {tags['dagster/sensor_name']}"
+    return "manual"
+
+
+def _step_error(event_json: str) -> str | None:
+    """Pull the failure message (+ root cause) out of a STEP_FAILURE event JSON."""
+    try:
+        d = json.loads(event_json)
+    except Exception:  # noqa: BLE001
+        return None
+    err = (((d.get("dagster_event") or {}).get("event_specific_data")) or {}).get("error") or {}
+    msg = err.get("message")
+    cause = err.get("cause") or {}
+    cause_msg = cause.get("message") if isinstance(cause, dict) else None
+    parts = [p.strip() for p in (msg, cause_msg) if p]
+    return "\n".join(parts) or None
+
+
+def _run_assets(home: str, run_id: str) -> list[dict]:
+    """Aggregate per-asset step outcomes for a single run. Missing/unreadable
+    per-run db -> empty list (graceful)."""
+    path = os.path.join(home, "history", "runs", f"{run_id}.db")
+    if not os.path.isfile(path):
+        return []
+    try:
+        conn = _ro_connect(path)
+        try:
+            rows = conn.execute(
+                "SELECT step_key, asset_key, dagster_event_type, event, timestamp "
+                "FROM event_logs "
+                "WHERE dagster_event_type IN ('STEP_SUCCESS', 'STEP_FAILURE') "
+                "ORDER BY timestamp"
+            ).fetchall()
+        finally:
+            conn.close()
+    except Exception:  # noqa: BLE001
+        return []
+    by_asset: dict[str, dict] = {}
+    for r in rows:
+        name = r["step_key"] or r["asset_key"] or "?"
+        failed = r["dagster_event_type"] == "STEP_FAILURE"
+        entry = by_asset.get(name)
+        if entry is None:
+            entry = {"asset": name, "status": "success", "error": None}
+            by_asset[name] = entry
+        if failed:
+            entry["status"] = "failed"
+            entry["error"] = _step_error(r["event"])
+    return list(by_asset.values())
+
+
+def _rollup(assets: list[dict], raw_status: str | None) -> str:
+    """Derive run health from the per-step events (the run-level status is
+    unreliable). All success -> success; any failure -> failed/partial; none -> running."""
+    if not assets:
+        return "running" if raw_status in ("STARTED", "STARTING", "QUEUED", "NOT_STARTED") else (
+            "failed" if raw_status == "FAILURE" else "running")
+    failed = [a for a in assets if a["status"] == "failed"]
+    if not failed:
+        return "success"
+    return "failed" if len(failed) == len(assets) else "partial"
+
+
+@router.get("/runs")
+def job_runs(limit: int = 50):
+    """Per-Dagster-run breakdown for the Job Runs page: job name, kickoff time,
+    trigger source, and a per-asset SUCCESS/FAILURE list with failure reasons.
+
+    Reads Dagster's native SQLite storage directly (read-only), deriving each
+    run's rollup health from its per-step events rather than the unreliable
+    run-level status."""
+    home = _dagster_home()
+    if not home:
+        return {"runs": [], "dagster_home": None}
+    runs_db = os.path.join(home, "history", "runs.db")
+    out: list[dict] = []
+    try:
+        conn = _ro_connect(runs_db)
+    except Exception:  # noqa: BLE001
+        return {"runs": [], "dagster_home": home}
+    try:
+        run_rows = conn.execute(
+            "SELECT run_id, pipeline_name, status, create_timestamp, start_time, end_time "
+            "FROM runs ORDER BY create_timestamp DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        # pull tags for just these runs in one query
+        ids = [r["run_id"] for r in run_rows]
+        tags_by_run: dict[str, dict] = {rid: {} for rid in ids}
+        if ids:
+            placeholders = ",".join("?" * len(ids))
+            for t in conn.execute(
+                f"SELECT run_id, key, value FROM run_tags WHERE run_id IN ({placeholders})",
+                ids,
+            ):
+                tags_by_run.setdefault(t["run_id"], {})[t["key"]] = t["value"]
+    finally:
+        conn.close()
+
+    for r in run_rows:
+        try:
+            run_id = r["run_id"]
+            job = r["pipeline_name"] or "?"
+            tags = tags_by_run.get(run_id, {})
+            triggered = _triggered_by(tags)
+            if job == "__ASSET_JOB":
+                job = "ad-hoc materialization"
+                if triggered == "manual":
+                    triggered = "manual"
+            assets = _run_assets(home, run_id)
+            raw_status = r["status"]
+            rollup = _rollup(assets, raw_status)
+            kicked = _run_ts_to_iso(r["start_time"] or r["create_timestamp"])
+            finished = _run_ts_to_iso(r["end_time"])
+            duration = None
+            if r["start_time"] and r["end_time"]:
+                duration = round(float(r["end_time"]) - float(r["start_time"]))
+            out.append({
+                "run_id": run_id,
+                "job": job,
+                "triggered_by": triggered,
+                "kicked_off_at": kicked,
+                "finished_at": finished,
+                "duration_sec": duration,
+                "rollup": rollup,
+                "raw_status": raw_status,
+                "assets": assets,
+            })
+        except Exception:  # noqa: BLE001 — one malformed run must not 500 the page
+            continue
+    return {"runs": out, "dagster_home": home}
 
 
 @router.post("/trigger-audit")
