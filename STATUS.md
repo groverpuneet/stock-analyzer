@@ -573,3 +573,105 @@
 
 ### Watchdog retry — 2026-07-04 23:05
   - nse_daily_job: stale source(s) nse_quotes
+
+### Watchdog retry — 2026-07-05 17:10
+  - nse_daily_job: stale source(s) nse_quotes
+
+### Data quality audit — nse_weekly @ 2026-07-05 17:24
+- gaps: {'fundamentals': 4, 'shareholding': 3} (total 7)
+- 3 stock(s) below 80% completeness: PHARMABEES(60), ITBEES(60), NIFTYBEES(60)
+
+### Watchdog retry — 2026-07-05 18:26
+  - nse_daily_job: stale source(s) nse_quotes
+
+### Watchdog retry — 2026-07-05 18:56
+  - nse_daily_job: stale source(s) nse_quotes
+
+### Watchdog retry — 2026-07-05 19:43
+  - nse_daily_job: stale source(s) nse_quotes
+
+### Watchdog retry — 2026-07-05 20:18
+  - nse_daily_job: stale source(s) nse_quotes
+
+### Watchdog retry — 2026-07-05 20:49
+  - nse_daily_job: stale source(s) nse_quotes
+
+### Watchdog retry — 2026-07-05 21:19
+  - nse_daily_job: stale source(s) nse_quotes
+
+### Watchdog retry — 2026-07-05 21:49
+  - nse_daily_job: stale source(s) nse_quotes
+
+### Watchdog retry — 2026-07-05 22:19
+  - nse_daily_job: stale source(s) nse_quotes
+
+### Watchdog retry — 2026-07-05 22:49
+  - nse_daily_job: stale source(s) nse_quotes
+
+### Watchdog retry — 2026-07-05 23:19
+  - nse_daily_job: stale source(s) nse_quotes
+
+### Watchdog retry — 2026-07-05 23:49
+  - nse_daily_job: stale source(s) nse_quotes
+
+### Watchdog retry — 2026-07-06 00:19
+  - nse_daily_job: stale source(s) nse_quotes
+
+### Watchdog retry — 2026-07-06 00:49
+  - nse_daily_job: stale source(s) nse_quotes
+
+### Watchdog retry — 2026-07-06 01:19
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Data quality audit — nse_weekly @ 2026-07-06 01:31
+- gaps: {'fundamentals': 4, 'shareholding': 3} (total 7)
+- 3 stock(s) below 80% completeness: ITBEES(60), NIFTYBEES(60), PHARMABEES(60)
+
+### Watchdog retry — 2026-07-06 01:49
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 02:19
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 02:49
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 03:19
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 03:49
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 04:19
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 04:49
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 05:19
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 05:49
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 06:19
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 06:49
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 07:19
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
