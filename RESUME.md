@@ -50,6 +50,12 @@ If you hit a rate limit, wait and retry. Log waits to STATUS.md.
   before the native-Dagster migration. Restarted; also fixed a real silent-data-loss bug in
   `sec_13f_collector.py` (missing `conn.rollback()` after a failed insert dropped the rest of
   that filer's batch). Full detail in STATUS.md's 2026-07-12 incident entry.
+- **Backtest Phase 1** (`bfde543`): migration 0028 `backtest` schema (runs/equity_curve/
+  trades); `backtest/data_provider.py` (PIT price+signal panels), `backtest/strategy.py`
+  (`Strategy` ABC + `SignalThresholdStrategy` reusing `signals/` as the alpha model),
+  `backtest/engine.py` (`run_backtest()` — vectorbt `Portfolio.from_signals`, cash-shared
+  across the universe, CAGR/Sharpe/Sortino/maxDD/hit-rate/turnover). `vectorbt` added to
+  requirements.txt. See TASKS.md DONE list — Phase 0a/0b/0c/1 are all now done.
 
 ### Next up (see TASKS.md DONE list + Current Status)
 1. **Upstox account** — signup in progress (KYC/document review, awaiting approval; the
@@ -57,11 +63,16 @@ If you hit a rate limit, wait and retry. Log waits to STATUS.md.
    the **Analytics token** exists (activate segments, keep ₹0 balance): build OHLCV → quotes
    → option-chain collectors, each its own commit (live-test then commit). Target tables
    already exist (migration 0025).
-2. **Backtest Phase 1** (P0a/P0b/P0c all done — this is next): vectorbt EOD engine behind a
-   Strategy interface, PIT data provider (reuse adjustment_factors + listing_date + as_of),
-   costs/slippage, risk metrics (CAGR/Sharpe/Sortino/maxDD/hit-rate/turnover), new isolated
-   `backtest` schema mirroring the `portfolio` schema pattern.
-3. **Not yet fixed:** `scripts/watchdog.sh` docker-vs-native gap — check git log, may already
+2. **Historical signal backfill** — `signal_explanations` only has ~3 real days so far
+   (started 2026-07-02) vs `daily_prices`'s full 2024-06-28+ history. To run a *meaningful*
+   multi-year `SignalThresholdStrategy` backtest, loop `signals.engine.run_signals(as_of=d)`
+   over each trading day in `daily_prices` for the watchlist — likely slow (many DB queries
+   per stock per day), so plan for a long-running/background job, not an inline call.
+3. **Backtest usage** — `backtest/engine.py:run_backtest()` is callable now (see docstring);
+   no webapp UI or Dagster wiring yet — it's a deliberately-invoked analysis call, not a
+   scheduled asset. Consider a `/backtest` webapp page reading `backtest.runs`/`equity_curve`
+   once there's enough signal history backfilled to make results meaningful.
+4. **Not yet fixed:** `scripts/watchdog.sh` docker-vs-native gap — check git log, may already
    be addressed by a commit outside this session (`5c899da`/`a524d28`) — verify before
    re-doing this work.
 

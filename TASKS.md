@@ -51,6 +51,24 @@
     RELIANCE; a 45d-ago backfill run wrote under that historical date without touching existing
     rows
 
+- [x] Backtest Phase 1 — vectorbt engine, Strategy interface, PIT data provider (2026-07-12)
+  - Migration 0028: isolated `backtest` schema (`runs`/`equity_curve`/`trades`), mirrors the
+    `portfolio` schema pattern minus encryption (public-market model performance, not real
+    holdings — `stock_reader` webapp role can read it)
+  - `backtest/data_provider.py`: PIT panels — universe from Phase 0b `listing_date`, prices
+    straight from `daily_prices` (already split-adjusted per Phase 0a), signals from
+    `signal_explanations` (Phase 0c `as_of` replay)
+  - `backtest/strategy.py`: abstract `Strategy` interface (prices, scores) -> (entries, exits);
+    `SignalThresholdStrategy` reuses `signals/` as the alpha model directly
+  - `backtest/engine.py`: `run_backtest()` — vectorbt `Portfolio.from_signals` (cash_sharing
+    across the universe), computes CAGR/Sharpe/Sortino/maxDD/hit-rate/turnover, persists run +
+    equity curve + trades
+  - Verified live end-to-end against real (short) signal history, persisted correctly then
+    cleaned up; price panel loader load-tested at full scale (529 days x 98 stocks, <1s)
+  - **Not yet done:** historical `signal_explanations` only has ~3 days of real data so far
+    (started 2026-07-02) — a meaningful multi-year signal-driven backtest needs a backfill loop
+    over `run_signals(as_of=<date>)` across `daily_prices`'s full 2024-06-28+ history first
+
 - [x] Upstox data plane — instrument master (2026-07-05)
   - Migration 0025: `fno_instruments`, `intraday_prices`, `option_chain_snapshots` tables;
     `isin`/`instrument_key` added to `stocks`; 5 `upstox_*` refresh tags seeded
