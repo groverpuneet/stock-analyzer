@@ -675,3 +675,47 @@
 ### Watchdog retry — 2026-07-06 07:19
   - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
   - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 07:49
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 09:10
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 09:50
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 10:51
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 11:53
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 12:32
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 13:54
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 14:45
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-06 15:34
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
+
+### Data quality audit — nse_weekly @ 2026-07-06 15:54
+- gaps: {'fundamentals': 4, 'shareholding': 3} (total 7)
+- 3 stock(s) below 80% completeness: PHARMABEES(60), ITBEES(60), NIFTYBEES(60)
+
+### Watchdog retry — 2026-07-06 16:04
+  - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
+  - nse_weekly_job: stale source(s) google_trends
