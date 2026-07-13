@@ -261,6 +261,7 @@ def store_holdings(filer_id: int, filer_cik: str, quarter: str, filing_date: str
             count += 1
         except Exception as e:
             log.error(f"Store holding failed: {e}")
+            conn.rollback()
 
     conn.commit()
     cursor.close()
