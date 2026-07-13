@@ -719,3 +719,28 @@
 ### Watchdog retry — 2026-07-06 16:04
   - nse_daily_job: stale source(s) nse_quotes, tech_indicators, signals
   - nse_weekly_job: stale source(s) google_trends
+
+### Watchdog retry — 2026-07-12 21:42
+  - nse_daily_job: stale source(s) news_sentiment, nse_quotes, tech_indicators, signals, nse_ohlcv, block_deals, fii_dii
+  - us_daily_job: stale source(s) us_prices, sec_form4
+  - nse_weekly_job: stale source(s) google_trends
+  - nse_fno_job: stale source(s) fno_data
+
+### Incident — 2026-07-12: Dagster down since ~2026-07-06, restarted
+- Native `dagster dev` process was not running at all (no PID, port 3000 dead);
+  `daily_prices` last updated 2026-07-03, `signal_explanations` last updated 2026-07-04.
+  `scripts/watchdog.sh` (launchd, hourly) only checks Docker containers and has been
+  failing every run with "Docker is not running" — it predates the native-dagster
+  migration and does not detect or restart a dead native process.
+- Restarted: `DATABASE_URL=... DAGSTER_HOME=.../.dagster_home nohup venv310/bin/dagster dev
+  -w workspace.yaml`. Catch-up runs succeeded: nse_daily_job, nse_weekly_job, us_daily_job,
+  us_weekly_job, nse_indicator_recompute_job all RUN_SUCCESS.
+- Found + fixed real bug while checking run logs: `sec_13f_collector.store_holdings` didn't
+  `conn.rollback()` after a failed insert (numeric overflow on `qoq_change_pct` NUMERIC(8,2)
+  for filers with a huge QoQ % swing), so the whole rest of that filer's batch failed with
+  "current transaction is aborted" and was silently dropped. Fixed (`11795f4`) — verified
+  by rerunning the collector: one overflow error, zero cascade errors.
+- **Not yet fixed:** `scripts/watchdog.sh` still assumes Docker and will keep logging
+  false "Docker is not running" every hour without detecting a dead native dagster process.
+  Needs updating to check the native process/port instead, or retiring in favor of the
+  Dagster `watchdog_sensor` already covering staleness.
