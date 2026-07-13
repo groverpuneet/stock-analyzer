@@ -24,7 +24,7 @@ If you hit a rate limit, wait and retry. Log waits to STATUS.md.
 - .env file: copy manually, never commit
 - venv: run python3 -m venv venv && pip install -r requirements.txt once per account
 
-## Current state & next steps (2026-07-06)
+## Current state & next steps (2026-07-12)
 
 ### Recently shipped (committed + pushed to origin/main)
 - **Data-source decision post-Kite** (`DATA_SOURCES_RESEARCH.md`) → two-plane architecture:
@@ -38,20 +38,32 @@ If you hit a rate limit, wait and retry. Log waits to STATUS.md.
   `.splits`; `backtest/adjustments.py` (source-state-aware). Finding: `daily_prices`
   (Yahoo Close) is already SPLIT-adjusted, not dividend-adjusted — split factors apply
   only to a RAW series (future Upstox candles), never to current daily_prices.
+- **Backtest Phase 0b** (`a550f3d`): `stocks.listing_date/delisting_date/is_active`
+  (migration 0027) + `survivorship_collector.py` matching against NSE's official mainboard
+  list. Positive-evidence only — never flips is_active to FALSE. See TASKS.md DONE list.
+- **Backtest Phase 0c** (`4e83e94`): backward-compatible `as_of` param threaded through
+  `signals/engine.py` + all pillars — every unbounded query now has a `<= as_of` cutoff.
+  `run_signals(as_of=...)` is the new historical `signal_explanations` backfill path.
+  See TASKS.md DONE list.
+- **Incident (2026-07-12):** native `dagster dev` was fully dead 2026-07-06→07-12 (6 days,
+  undetected) because `scripts/watchdog.sh` only checked Docker containers, a leftover from
+  before the native-Dagster migration. Restarted; also fixed a real silent-data-loss bug in
+  `sec_13f_collector.py` (missing `conn.rollback()` after a failed insert dropped the rest of
+  that filer's batch). Full detail in STATUS.md's 2026-07-12 incident entry.
 
 ### Next up (see TASKS.md DONE list + Current Status)
-1. **Upstox account** — was erroring on signup; retry. Once the **Analytics token** exists
-   (activate segments, keep ₹0 balance): build OHLCV → quotes → option-chain collectors,
-   each its own commit (live-test then commit). Target tables already exist (migration 0025).
-2. **Backtest foundation** — needs NO Upstox account, can proceed in parallel:
-   - **P0b** survivorship security master: add `listing_date/delisting_date/is_active` to
-     `stocks`; seed current universe; populate listing_date from NSE `EQUITY_L.csv`; flag
-     delisted-name bias.
-   - **P0c** point-in-time signal replay: backward-compatible `as_of` param on
-     `signals/engine.py` + pillars (defaults to today → live behavior unchanged) +
-     historical `signal_explanations` backfill.
-   - **Phase 1**: vectorbt EOD engine behind a Strategy interface, PIT data provider,
-     costs/slippage, risk metrics, new isolated `backtest` schema.
+1. **Upstox account** — signup in progress (KYC/document review, awaiting approval; the
+   dev/API console is gated behind an actual trading+demat account, no API-only tier). Once
+   the **Analytics token** exists (activate segments, keep ₹0 balance): build OHLCV → quotes
+   → option-chain collectors, each its own commit (live-test then commit). Target tables
+   already exist (migration 0025).
+2. **Backtest Phase 1** (P0a/P0b/P0c all done — this is next): vectorbt EOD engine behind a
+   Strategy interface, PIT data provider (reuse adjustment_factors + listing_date + as_of),
+   costs/slippage, risk metrics (CAGR/Sharpe/Sortino/maxDD/hit-rate/turnover), new isolated
+   `backtest` schema mirroring the `portfolio` schema pattern.
+3. **Not yet fixed:** `scripts/watchdog.sh` docker-vs-native gap — check git log, may already
+   be addressed by a commit outside this session (`5c899da`/`a524d28`) — verify before
+   re-doing this work.
 
 ### Env / creds (see .env.example)
 - Upstox: `UPSTOX_API_KEY/SECRET/REDIRECT_URI` + `UPSTOX_ANALYTICS_TOKEN`.

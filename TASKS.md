@@ -29,6 +29,28 @@
   - Dagster asset `nse_adjustment_factors` (nse_weekly). Verified WIPRO 2:1 split continuity.
   - **Finding:** `daily_prices` (Yahoo Close) is already SPLIT-adjusted, not dividend-adjusted.
 
+- [x] Backtest Phase 0b — survivorship security master (2026-07-12)
+  - Migration 0027: `stocks.listing_date/delisting_date/is_active` (is_active default TRUE)
+  - `data_collectors/survivorship_collector.py`: matches tradingsymbol against NSE's official
+    mainboard list (EQUITY_L.csv) → sets listing_date + is_active=TRUE on positive matches only,
+    never flips to FALSE (`stocks` is a broad ~10.7k-row historical symbol master incl. SME/
+    legacy names EQUITY_L.csv doesn't cover — absence isn't delisting evidence)
+  - Dagster asset `nse_survivorship_master` (nse_weekly). Verified live: 2401/10799 NSE stocks
+    matched; only 3 watchlist stocks unmatched (NIFTYBEES/ITBEES/PHARMABEES — ETFs, expected)
+  - **Deferred:** true delisted-name identification needs a historical index-membership backfill
+
+- [x] Backtest Phase 0c — point-in-time signal replay (2026-07-12)
+  - `signals/engine.py` + all pillars (technical/fundamental/flows/advisor) take a
+    backward-compatible `as_of` param; every previously-unbounded query now has a `<= as_of`
+    cutoff (or quarter/month/window equivalent) to prevent look-ahead bias
+  - External sentiment (live web/news fetch) always skipped for a past as_of — no historical
+    replay possible for that pillar
+  - `run_signals(as_of=...)` is now the historical `signal_explanations` backfill path; also
+    excludes stocks not yet listed as of that date via Phase 0b's `listing_date`
+  - Verified live: as_of=today vs as_of=30d-ago give different technical scores/reasoning for
+    RELIANCE; a 45d-ago backfill run wrote under that historical date without touching existing
+    rows
+
 - [x] Upstox data plane — instrument master (2026-07-05)
   - Migration 0025: `fno_instruments`, `intraday_prices`, `option_chain_snapshots` tables;
     `isin`/`instrument_key` added to `stocks`; 5 `upstox_*` refresh tags seeded
