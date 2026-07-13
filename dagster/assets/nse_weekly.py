@@ -34,6 +34,26 @@ def nse_adjustment_factors(context) -> None:
 
 @asset(
     group_name="nse_weekly",
+    deps=[nse_stock_universe],
+    description=(
+        "Survivorship security master — matches stocks.tradingsymbol against NSE's "
+        "current mainboard list (EQUITY_L.csv) to set listing_date + is_active=TRUE. "
+        "Positive-evidence only: never flips is_active to FALSE (stocks is a broader "
+        "historical symbol master including SME/legacy names EQUITY_L.csv doesn't cover). "
+        "Source tag: survivorship_master."
+    ),
+)
+def nse_survivorship_master(context) -> None:
+    from data_collectors.survivorship_collector import collect_survivorship_master
+    result = collect_survivorship_master()
+    context.log.info(
+        f"Survivorship master: {result['matched']}/{result['total_nse_stocks']} NSE stocks "
+        f"matched to mainboard listing dates ({result['unmatched_watchlist']} watchlist stocks unmatched)"
+    )
+
+
+@asset(
+    group_name="nse_weekly",
     description=(
         "Fundamentals from Screener.in: P/E, P/B, ROE, ROCE, promoter holding, etc. "
         "Also refreshes ~10yr monthly P/E history (Screener chart API) into fundamentals "
