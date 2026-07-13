@@ -56,6 +56,13 @@ If you hit a rate limit, wait and retry. Log waits to STATUS.md.
   `backtest/engine.py` (`run_backtest()` — vectorbt `Portfolio.from_signals`, cash-shared
   across the universe, CAGR/Sharpe/Sortino/maxDD/hit-rate/turnover). `vectorbt` added to
   requirements.txt. See TASKS.md DONE list — Phase 0a/0b/0c/1 are all now done.
+- **Historical signal backfill** (`b120469`): `backtest/backfill_signals.py` looped
+  `run_signals(as_of=d)` over every trading day `technical_indicators` has — 509 days
+  x 98 stocks in 190s. `signal_explanations` went from 3 real days to 512 days
+  (2024-07-26..2026-07-12), 148k rows. Verified with a real 2-year backtest: 8.16%
+  CAGR, 0.49 Sharpe, -25.8% max drawdown, 5 trades, 60% hit rate (kept as
+  `backtest.runs` id=2, the first real reference run). The whole Phase 0a→1 pipeline
+  is now proven end-to-end against real multi-year history, not just a mechanics test.
 
 ### Next up (see TASKS.md DONE list + Current Status)
 1. **Upstox account** — signup in progress (KYC/document review, awaiting approval; the
@@ -63,16 +70,14 @@ If you hit a rate limit, wait and retry. Log waits to STATUS.md.
    the **Analytics token** exists (activate segments, keep ₹0 balance): build OHLCV → quotes
    → option-chain collectors, each its own commit (live-test then commit). Target tables
    already exist (migration 0025).
-2. **Historical signal backfill** — `signal_explanations` only has ~3 real days so far
-   (started 2026-07-02) vs `daily_prices`'s full 2024-06-28+ history. To run a *meaningful*
-   multi-year `SignalThresholdStrategy` backtest, loop `signals.engine.run_signals(as_of=d)`
-   over each trading day in `daily_prices` for the watchlist — likely slow (many DB queries
-   per stock per day), so plan for a long-running/background job, not an inline call.
-3. **Backtest usage** — `backtest/engine.py:run_backtest()` is callable now (see docstring);
-   no webapp UI or Dagster wiring yet — it's a deliberately-invoked analysis call, not a
-   scheduled asset. Consider a `/backtest` webapp page reading `backtest.runs`/`equity_curve`
-   once there's enough signal history backfilled to make results meaningful.
-4. **Not yet fixed:** `scripts/watchdog.sh` docker-vs-native gap — check git log, may already
+2. **Backtest usage / iteration** — `backtest/engine.py:run_backtest()` and
+   `SignalThresholdStrategy` are both usable now with real 2-year history behind them.
+   Natural next steps: try other buy/sell thresholds or horizons (SHORT/LONG) for
+   comparison, add more Strategy implementations, or re-run `backfill_signals.py`
+   whenever pillar scoring logic changes (it's idempotent). No webapp UI or Dagster
+   wiring yet — it's a deliberately-invoked analysis call, not a scheduled asset;
+   consider a `/backtest` webapp page reading `backtest.runs`/`equity_curve` next.
+3. **Not yet fixed:** `scripts/watchdog.sh` docker-vs-native gap — check git log, may already
    be addressed by a commit outside this session (`5c899da`/`a524d28`) — verify before
    re-doing this work.
 

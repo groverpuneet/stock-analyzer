@@ -65,9 +65,16 @@
     equity curve + trades
   - Verified live end-to-end against real (short) signal history, persisted correctly then
     cleaned up; price panel loader load-tested at full scale (529 days x 98 stocks, <1s)
-  - **Not yet done:** historical `signal_explanations` only has ~3 days of real data so far
-    (started 2026-07-02) — a meaningful multi-year signal-driven backtest needs a backfill loop
-    over `run_signals(as_of=<date>)` across `daily_prices`'s full 2024-06-28+ history first
+
+- [x] Historical signal_explanations backfill (2026-07-12)
+  - `backtest/backfill_signals.py`: loops `run_signals(as_of=d)` over every trading day
+    `technical_indicators` has data for. Idempotent — safe to re-run/resume.
+  - Ran it: 509 days x 98 stocks in 190s. `signal_explanations` went from 3 real days
+    (2026-07-02..07-12) to 512 days (2024-07-26..2026-07-12), 148k rows.
+  - Verified with a real 2-year `SignalThresholdStrategy` backtest (buy>=60/sell<45, MID):
+    8.16% CAGR, 0.49 Sharpe, -25.8% max drawdown, 5 trades, 60% hit rate — sane numbers,
+    proving the full Phase 0a→1 pipeline works end-to-end against real history. Kept as
+    `backtest.runs` id=2, the first real reference run.
 
 - [x] Upstox data plane — instrument master (2026-07-05)
   - Migration 0025: `fno_instruments`, `intraday_prices`, `option_chain_snapshots` tables;
