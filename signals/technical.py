@@ -1,4 +1,6 @@
 """Pillar 1 — Technical signals (trend, RSI, MACD, Bollinger, volume, OBV, VWAP)."""
+from datetime import date
+
 from .util import dict_cur, f, PillarResult
 
 _SQL = """
@@ -10,15 +12,16 @@ _SQL = """
     FROM daily_prices dp
     LEFT JOIN technical_indicators ti
       ON dp.stock_id = ti.stock_id AND dp.date = ti.date
-    WHERE dp.stock_id = %s
+    WHERE dp.stock_id = %s AND dp.date <= %s
     ORDER BY dp.date DESC
     LIMIT 10
 """
 
 
-def score_technical(conn, stock_id: int) -> dict:
+def score_technical(conn, stock_id: int, as_of: date | None = None) -> dict:
+    as_of = as_of or date.today()
     with dict_cur(conn) as cur:
-        cur.execute(_SQL, (stock_id,))
+        cur.execute(_SQL, (stock_id, as_of))
         rows = [dict(r) for r in cur.fetchall()]
     r = PillarResult()
     if not rows:

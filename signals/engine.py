@@ -41,24 +41,31 @@ def _merge_metrics(pillars: dict) -> dict:
     return out
 
 
-def compute_for_stock(conn, stock_id: int, skip_external: bool = False) -> dict | None:
+def compute_for_stock(conn, stock_id: int, skip_external: bool = False,
+                       as_of: date | None = None) -> dict | None:
+    as_of = as_of or date.today()
+    is_live = as_of >= date.today()
     with dict_cur(conn) as cur:
         cur.execute("SELECT tradingsymbol, name FROM stocks WHERE id=%s", (stock_id,))
         s = cur.fetchone()
     if not s:
         return None
 
-    tech = score_technical(conn, stock_id)
-    fund = score_fundamental(conn, stock_id)
-    flow = score_flows(conn, stock_id)
-    adv = score_advisor(conn, stock_id)
+    tech = score_technical(conn, stock_id, as_of)
+    fund = score_fundamental(conn, stock_id, as_of)
+    flow = score_flows(conn, stock_id, as_of)
+    adv = score_advisor(conn, stock_id, as_of)
 
-    raw, expiry = _cached_external(conn, stock_id)
+    # External sentiment is a live web/news fetch — it has no historical replay, so a
+    # past as_of always skips it (no look-ahead, and no point re-fetching "current" news).
+    raw, expiry = (None, None)
     fetched = False
-    if raw is None and not skip_external:
-        raw = fetch_external_sentiment(s["name"], s["tradingsymbol"])
-        expiry = datetime.now() + timedelta(hours=CACHE_HOURS)
-        fetched = True
+    if is_live:
+        raw, expiry = _cached_external(conn, stock_id)
+        if raw is None and not skip_external:
+            raw = fetch_external_sentiment(s["name"], s["tradingsymbol"])
+            expiry = datetime.now() + timedelta(hours=CACHE_HOURS)
+            fetched = True
     ext = score_external(raw)
 
     pillars = {"technical": tech, "fundamental": fund, "flow": flow, "external": ext, "advisor": adv}
@@ -71,8 +78,8 @@ def compute_for_stock(conn, stock_id: int, skip_external: bool = False) -> dict 
     }
 
 
-def _store(conn, stock_id: int, computed: dict):
-    today = date.today()
+def _store(conn, stock_id: int, computed: dict, as_of: date | None = None):
+    today = as_of or date.today()
     p = computed["pillars"]
     with conn.cursor() as cur:
         for h in HORIZONS:
@@ -118,23 +125,29 @@ def _store(conn, stock_id: int, computed: dict):
 
 
 def run_signals(stock_ids: list[int] | None = None, watchlist: str = "Default",
-                skip_external: bool = False, external_pause: float = 1.0) -> dict:
+                skip_external: bool = False, external_pause: float = 1.0,
+                as_of: date | None = None) -> dict:
+    as_of = as_of or date.today()
     conn = get_conn()
     try:
         if stock_ids is None:
             with dict_cur(conn) as cur:
+                # listing_date IS NULL means unreconciled (SME/ETF/etc, not evidence of not-
+                # yet-listed) — see survivorship_collector.py — so it's never excluded here.
                 cur.execute(
                     "SELECT s.id FROM watchlist w JOIN stocks s ON w.stock_id=s.id "
-                    "WHERE w.name=%s AND s.market <> 'MF' ORDER BY s.tradingsymbol", (watchlist,))
+                    "WHERE w.name=%s AND s.market <> 'MF' "
+                    "AND (s.listing_date IS NULL OR s.listing_date <= %s) "
+                    "ORDER BY s.tradingsymbol", (watchlist, as_of))
                 stock_ids = [r["id"] for r in cur.fetchall()]
 
         done, fetched, totals = 0, 0, {"technical": [], "fundamental": [], "flow": [], "external": []}
         for sid in stock_ids:
             try:
-                c = compute_for_stock(conn, sid, skip_external=skip_external)
+                c = compute_for_stock(conn, sid, skip_external=skip_external, as_of=as_of)
                 if not c:
                     continue
-                _store(conn, sid, c)
+                _store(conn, sid, c, as_of)
                 done += 1
                 if c["external_fetched"]:
                     fetched += 1

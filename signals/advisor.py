@@ -3,17 +3,21 @@
 When trusted advisor opinions are ingested into advisor_opinions, this pillar will
 aggregate them. For now it returns score=None so the combiner ignores it entirely.
 """
+from datetime import date
+
 from .util import dict_cur
 
 
-def score_advisor(conn, stock_id: int) -> dict:
+def score_advisor(conn, stock_id: int, as_of: date | None = None) -> dict:
+    as_of = as_of or date.today()
     opinions = []
     try:
         with dict_cur(conn) as cur:
             cur.execute(
                 "SELECT advisor_name, advisor_type, opinion, target_price, published_date "
-                "FROM advisor_opinions WHERE stock_id=%s ORDER BY published_date DESC LIMIT 10",
-                (stock_id,))
+                "FROM advisor_opinions WHERE stock_id=%s AND published_date <= %s "
+                "ORDER BY published_date DESC LIMIT 10",
+                (stock_id, as_of))
             opinions = [dict(x) for x in cur.fetchall()]
     except Exception:
         pass

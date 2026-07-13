@@ -17,12 +17,13 @@ from .util import dict_cur, f, PillarResult
 _MACRO_CACHE: dict = {}
 
 
-def compute_macro_flows(conn) -> dict:
-    """Market-wide flow/sentiment signals (same for all stocks). Cached per day.
+def compute_macro_flows(conn, as_of: date | None = None) -> dict:
+    """Market-wide flow/sentiment signals (same for all stocks). Cached per (as_of) day.
 
     Returns {"items": [(points, text, icon), ...], "key_metrics": {}, "contrary": [...]}.
     """
-    key = date.today().isoformat()
+    as_of = as_of or date.today()
+    key = as_of.isoformat()
     if key in _MACRO_CACHE:
         return _MACRO_CACHE[key]
 
@@ -32,14 +33,17 @@ def compute_macro_flows(conn) -> dict:
 
     with dict_cur(conn) as cur:
         # FII/DII 5-day cumulative + streak
-        cur.execute("SELECT fii_net, dii_net FROM fii_dii_flows ORDER BY date DESC LIMIT 10")
+        cur.execute("SELECT fii_net, dii_net FROM fii_dii_flows WHERE date <= %s "
+                    "ORDER BY date DESC LIMIT 10", (as_of,))
         fii_rows = [dict(x) for x in cur.fetchall()]
         # India Fear & Greed
         cur.execute("SELECT value FROM macro_indicators WHERE market='IN' "
-                    "AND indicator='india_fear_greed_index' ORDER BY date DESC LIMIT 2")
+                    "AND indicator='india_fear_greed_index' AND date <= %s ORDER BY date DESC LIMIT 2",
+                    (as_of,))
         fg = [f(x["value"]) for x in cur.fetchall()]
         # VIX + PCR
-        cur.execute("SELECT india_vix, total_pcr FROM fno_data ORDER BY date DESC LIMIT 1")
+        cur.execute("SELECT india_vix, total_pcr FROM fno_data WHERE date <= %s "
+                    "ORDER BY date DESC LIMIT 1", (as_of,))
         fno = cur.fetchone()
         # Nifty breadth — % of NSE watchlist stocks with latest close > latest SMA50
         cur.execute(
@@ -47,14 +51,15 @@ def compute_macro_flows(conn) -> dict:
             WITH latest AS (
                 SELECT DISTINCT ON (ti.stock_id) ti.stock_id, ti.sma_50,
                        (SELECT close FROM daily_prices dp WHERE dp.stock_id=ti.stock_id
-                        ORDER BY dp.date DESC LIMIT 1) AS close
+                        AND dp.date <= %(as_of)s ORDER BY dp.date DESC LIMIT 1) AS close
                 FROM technical_indicators ti
                 JOIN stocks s ON s.id=ti.stock_id AND s.exchange='NSE'
+                WHERE ti.date <= %(as_of)s
                 ORDER BY ti.stock_id, ti.date DESC
             )
             SELECT COUNT(*) FILTER (WHERE close > sma_50) above, COUNT(*) tot
             FROM latest WHERE sma_50 IS NOT NULL AND close IS NOT NULL
-            """)
+            """, {"as_of": as_of})
         br = cur.fetchone()
 
     # ── FII/DII ──
@@ -134,8 +139,9 @@ def compute_macro_flows(conn) -> dict:
     return result
 
 
-def compute_stock_flows(conn, stock_id: int) -> dict:
+def compute_stock_flows(conn, stock_id: int, as_of: date | None = None) -> dict:
     """Stock-specific flow/sentiment signals. Returns items prefixed [STOCK] downstream."""
+    as_of = as_of or date.today()
     items: list[tuple] = []
     metrics: dict = {}
     contrary: list[str] = []
@@ -146,45 +152,53 @@ def compute_stock_flows(conn, stock_id: int) -> dict:
         india = s and s["exchange"] in ("NSE", "BSE")
 
         cur.execute("SELECT transaction, COUNT(*) n, COALESCE(SUM(quantity),0) qty FROM insider_trades "
-                    "WHERE stock_id=%s AND date >= CURRENT_DATE - 30 GROUP BY transaction", (stock_id,))
+                    "WHERE stock_id=%s AND date >= %s::date - 30 AND date <= %s GROUP BY transaction",
+                    (stock_id, as_of, as_of))
         ins = {r["transaction"]: r for r in cur.fetchall()}
 
         cur.execute("SELECT transaction, COUNT(*) n FROM bulk_deals WHERE stock_id=%s "
-                    "AND date >= CURRENT_DATE - 30 GROUP BY transaction", (stock_id,))
+                    "AND date >= %s::date - 30 AND date <= %s GROUP BY transaction",
+                    (stock_id, as_of, as_of))
         bulk = {r["transaction"]: r["n"] for r in cur.fetchall()}
 
         cur.execute("SELECT transaction_type, pct_acquired FROM sast_disclosures WHERE stock_id=%s "
-                    "AND disclosure_date >= CURRENT_DATE - 90 ORDER BY disclosure_date DESC LIMIT 1", (stock_id,))
+                    "AND disclosure_date >= %s::date - 90 AND disclosure_date <= %s "
+                    "ORDER BY disclosure_date DESC LIMIT 1", (stock_id, as_of, as_of))
         sast = cur.fetchone()
 
         us_13f = None
         if not india and symbol:
-            cur.execute("SELECT COALESCE(SUM(qoq_change_shares),0) net, COUNT(*) n FROM institutional_holdings_13f "
-                        "WHERE UPPER(symbol)=UPPER(%s) AND quarter=(SELECT MAX(quarter) FROM institutional_holdings_13f)", (symbol,))
+            cur.execute(
+                "SELECT COALESCE(SUM(qoq_change_shares),0) net, COUNT(*) n FROM institutional_holdings_13f "
+                "WHERE UPPER(symbol)=UPPER(%s) AND quarter=("
+                "  SELECT MAX(quarter) FROM institutional_holdings_13f WHERE filing_date <= %s)",
+                (symbol, as_of))
             us_13f = cur.fetchone()
 
         # Shareholding FII% + DII% QoQ (last 2 quarters)
         cur.execute("SELECT fii_pct, dii_pct FROM shareholding_pattern WHERE stock_id=%s "
-                    "ORDER BY quarter_end DESC LIMIT 2", (stock_id,))
+                    "AND quarter_end <= %s ORDER BY quarter_end DESC LIMIT 2", (stock_id, as_of))
         sh = [dict(x) for x in cur.fetchall()]
 
         # MF ownership MoM
-        cur.execute("SELECT mom_change_pct FROM mf_stock_holdings WHERE stock_id=%s ORDER BY month DESC LIMIT 1", (stock_id,))
+        cur.execute("SELECT mom_change_pct FROM mf_stock_holdings WHERE stock_id=%s AND month <= %s "
+                    "ORDER BY month DESC LIMIT 1", (stock_id, as_of))
         mf = cur.fetchone()
 
         # Analyst target/upside
         cur.execute("SELECT consensus_rating, upside_pct, avg_target_price FROM analyst_targets "
-                    "WHERE stock_id=%s ORDER BY date DESC LIMIT 1", (stock_id,))
+                    "WHERE stock_id=%s AND date <= %s ORDER BY date DESC LIMIT 1", (stock_id, as_of))
         an = cur.fetchone()
 
         # News sentiment 7d + prior week
         cur.execute("SELECT AVG(sentiment_score) a, COUNT(*) n FROM news_sentiment WHERE stock_id=%s "
-                    "AND date >= CURRENT_DATE - 7 AND sentiment_score IS NOT NULL", (stock_id,))
+                    "AND date >= %s::date - 7 AND date <= %s AND sentiment_score IS NOT NULL",
+                    (stock_id, as_of, as_of))
         n7 = cur.fetchone()
 
         # Google Trends
-        cur.execute("SELECT value FROM macro_indicators WHERE indicator=%s ORDER BY date DESC LIMIT 2",
-                    (f"google_trends_{symbol}",))
+        cur.execute("SELECT value FROM macro_indicators WHERE indicator=%s AND date <= %s "
+                    "ORDER BY date DESC LIMIT 2", (f"google_trends_{symbol}", as_of))
         gt = [f(x["value"]) for x in cur.fetchall()]
 
     buys = int(ins.get("BUY", {}).get("n", 0)) if "BUY" in ins else 0
@@ -273,11 +287,11 @@ def compute_stock_flows(conn, stock_id: int) -> dict:
     return {"items": items, "key_metrics": metrics, "contrary": contrary}
 
 
-def score_flows(conn, stock_id: int) -> dict:
+def score_flows(conn, stock_id: int, as_of: date | None = None) -> dict:
     """Combine MACRO (market-wide, cached) + STOCK-specific into the flows pillar result."""
     r = PillarResult()
-    macro = compute_macro_flows(conn)
-    stock = compute_stock_flows(conn, stock_id)
+    macro = compute_macro_flows(conn, as_of)
+    stock = compute_stock_flows(conn, stock_id, as_of)
 
     for pts, text, icon in macro["items"]:
         r.add(pts, f"[MACRO] {text}", icon=icon)

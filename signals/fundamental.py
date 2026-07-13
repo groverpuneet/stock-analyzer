@@ -1,8 +1,11 @@
 """Pillar 2 — Fundamental signals (valuation, quality, growth, earnings, analyst, ownership)."""
+from datetime import date
+
 from .util import dict_cur, f, PillarResult
 
 
-def score_fundamental(conn, stock_id: int) -> dict:
+def score_fundamental(conn, stock_id: int, as_of: date | None = None) -> dict:
+    as_of = as_of or date.today()
     r = PillarResult()
     with dict_cur(conn) as cur:
         # Latest full fundamentals row (exclude the PE-history-only series)
@@ -10,33 +13,37 @@ def score_fundamental(conn, stock_id: int) -> dict:
             """SELECT pe_ratio, pb_ratio, roe, roce_pct, debt_to_equity, opm_pct,
                       ev_ebitda, promoter_holding_pct, pledged_pct
                FROM fundamentals WHERE stock_id=%s AND source <> 'screener_pe_history'
-               ORDER BY date DESC LIMIT 1""", (stock_id,))
+               AND date <= %s ORDER BY date DESC LIMIT 1""", (stock_id, as_of))
         fund = cur.fetchone()
 
-        cur.execute("SELECT pe_percentile FROM stock_scores WHERE stock_id=%s ORDER BY date DESC LIMIT 1", (stock_id,))
+        cur.execute("SELECT pe_percentile FROM stock_scores WHERE stock_id=%s AND date <= %s "
+                    "ORDER BY date DESC LIMIT 1", (stock_id, as_of))
         sc = cur.fetchone()
         pe_pct = f(sc["pe_percentile"]) if sc else None
 
         cur.execute(
             """SELECT quarter, period_end, revenue, pat FROM quarterly_financials
-               WHERE stock_id=%s ORDER BY period_end DESC LIMIT 6""", (stock_id,))
+               WHERE stock_id=%s AND period_end <= %s ORDER BY period_end DESC LIMIT 6""",
+            (stock_id, as_of))
         q = [dict(x) for x in cur.fetchall()]
 
         cur.execute(
             "SELECT surprise_pct, results_date FROM earnings_calendar WHERE stock_id=%s "
-            "AND surprise_pct IS NOT NULL ORDER BY results_date DESC LIMIT 1", (stock_id,))
+            "AND surprise_pct IS NOT NULL AND results_date <= %s ORDER BY results_date DESC LIMIT 1",
+            (stock_id, as_of))
         earn = cur.fetchone()
 
         # NOTE: analyst consensus + FII%/DII% ownership trends now live in the FLOWS pillar
         # (stock-specific section) to avoid double-counting; fundamental keeps promoter/pledging.
         cur.execute(
             "SELECT promoter_pct FROM shareholding_pattern "
-            "WHERE stock_id=%s ORDER BY quarter_end DESC LIMIT 2", (stock_id,))
+            "WHERE stock_id=%s AND quarter_end <= %s ORDER BY quarter_end DESC LIMIT 2",
+            (stock_id, as_of))
         sh = [dict(x) for x in cur.fetchall()]
 
         cur.execute(
             "SELECT current_pledge_pct, change_pct FROM pledging_alerts WHERE stock_id=%s "
-            "ORDER BY date DESC LIMIT 1", (stock_id,))
+            "AND date <= %s ORDER BY date DESC LIMIT 1", (stock_id, as_of))
         pl = cur.fetchone()
 
     # ── Valuation ──
