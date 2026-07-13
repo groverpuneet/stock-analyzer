@@ -45,3 +45,6 @@ slowapi
 # Session L — 4-pillar signal engine (external sentiment)
 duckduckgo-search
 vaderSentiment
+
+# Backtest Phase 1 — vectorized EOD engine
+vectorbt
